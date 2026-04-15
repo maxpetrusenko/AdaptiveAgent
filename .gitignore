@@ -29,3 +29,5 @@ Thumbs.db
 coverage/
 .coverage
 htmlcov/
+.playwright-mcp/
+dashboard.png

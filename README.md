@@ -48,6 +48,25 @@ Open `http://localhost:3737`. The database and 10 seed eval cases are created au
 
 ---
 
+## Screenshots
+
+### Dashboard — Monitor agent metrics in real-time
+![Dashboard](assets/dashboard.png)
+
+### Chat — Streaming conversations with tool use
+![Chat](assets/chat-with-message.png)
+
+### Evaluations — Run evals, see pass/fail rates and trends
+![Evals](assets/evals.png)
+
+### Test Cases — 10 seed cases + create your own
+![Cases](assets/cases.png)
+
+### Adaptation — One-click self-improvement with prompt diff view
+![Adapt](assets/adapt.png)
+
+---
+
 ## What It Does
 
 ### The Self-Improving Loop
