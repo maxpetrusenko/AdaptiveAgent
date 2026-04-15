@@ -1,4 +1,4 @@
-"""LLM factory with provider fallback (Ollama, OpenAI, Anthropic)."""
+"""LLM factory with provider fallback (Ollama via OpenAI compat, OpenAI, Anthropic)."""
 
 from __future__ import annotations
 
@@ -27,11 +27,13 @@ def _ollama_available() -> bool:
     import httpx
 
     try:
-        r = httpx.get(f"{settings.ollama_base_url}/api/tags", timeout=2)
+        headers = {}
+        if settings.gemma4_api_key:
+            headers["Authorization"] = f"Bearer {settings.gemma4_api_key}"
+        r = httpx.get(f"{settings.ollama_base_url}/api/tags", headers=headers, timeout=5)
         if r.status_code != 200:
             return False
         models = [m["name"] for m in r.json().get("models", [])]
-        # Check if the configured model (or any variant) is available
         return any(settings.ollama_model in m for m in models)
     except Exception:
         return False
@@ -41,12 +43,17 @@ def build_chat_model(*, purpose: str, streaming: bool = False):
     provider = get_provider()
 
     if provider == "ollama":
-        from langchain_ollama import ChatOllama
+        from langchain_openai import ChatOpenAI
 
+        # Use OpenAI-compatible endpoint — works with auth proxy bearer tokens
         model = settings.ollama_judge_model if purpose == "judge" else settings.ollama_model
-        return ChatOllama(
+        api_key = settings.gemma4_api_key or "ollama"
+        base_url = f"{settings.ollama_base_url}/v1"
+        return ChatOpenAI(
             model=model,
-            base_url=settings.ollama_base_url,
+            api_key=api_key,
+            base_url=base_url,
+            streaming=streaming,
             temperature=0,
         )
 

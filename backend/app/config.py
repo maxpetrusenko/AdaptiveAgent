@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "gemma4"
     ollama_judge_model: str = "gemma4"
+    gemma4_api_key: str = ""
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:3737"]
 
     class Config:
