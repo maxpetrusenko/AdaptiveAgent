@@ -48,6 +48,26 @@ Open `http://localhost:3737`. The database and 10 seed eval cases are created au
 
 ---
 
+## Benchmark It
+
+To verify the agent is actually adaptive, run repeated evals before and after one adaptation loop:
+
+```bash
+cd backend
+python -m app.benchmarks.run --repeats 3 --out benchmark-results/latest.json
+```
+
+The report includes:
+
+- baseline mean/std pass rate
+- post-adaptation mean/std pass rate
+- accepted/rejected adaptation decision
+- whether the active prompt version changed
+
+See [docs/runbooks/benchmarking.md](docs/runbooks/benchmarking.md) for interpretation.
+
+---
+
 ## Screenshots
 
 ### Dashboard — Monitor agent metrics in real-time

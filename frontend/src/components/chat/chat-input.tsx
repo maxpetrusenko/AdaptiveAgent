@@ -38,7 +38,7 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Type a message..."
-          className="min-h-[44px] max-h-[200px] resize-none"
+          className="min-h-[44px] max-h-[200px] resize-none border-2 border-foreground/10"
           rows={1}
           disabled={disabled}
         />
@@ -46,7 +46,7 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
           onClick={handleSend}
           disabled={disabled || !value.trim()}
           size="icon"
-          className="shrink-0"
+          className="shrink-0 bg-[#c8ff00] text-[#1a1a1a] hover:bg-[#b8ef00]"
         >
           <Send className="h-4 w-4" />
         </Button>

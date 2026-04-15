@@ -33,7 +33,7 @@ export function PromptDiff({
   }
 
   return (
-    <Card>
+    <Card className="border-2 border-foreground/10">
       <CardHeader>
         <CardTitle className="text-sm">Prompt Changes</CardTitle>
         {changeReason && (
@@ -54,9 +54,9 @@ export function PromptDiff({
                   key={i}
                   className={
                     line.type === "removed"
-                      ? "bg-red-500/10 text-red-400"
+                      ? "bg-red-100 text-red-700"
                       : line.type === "added"
-                        ? "bg-green-500/10 text-green-400"
+                        ? "bg-[#c8ff00]/20 text-green-700"
                         : "text-muted-foreground"
                   }
                 >

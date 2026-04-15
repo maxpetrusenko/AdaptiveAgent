@@ -31,3 +31,5 @@ coverage/
 htmlcov/
 .playwright-mcp/
 dashboard.png
+test-results/
+assets/reference-style.png

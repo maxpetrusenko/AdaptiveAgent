@@ -31,7 +31,7 @@ export default function ChatPage() {
         onSelect={selectSession}
         onCreate={createSession}
       />
-      <div className="flex flex-1 flex-col">
+      <div className="flex flex-1 flex-col bg-background">
         <div className="border-b border-border px-4 py-3">
           <h2 className="text-lg font-semibold">
             {activeSessionId ? "Chat" : "Start a new conversation"}

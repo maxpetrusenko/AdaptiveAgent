@@ -37,13 +37,13 @@ export function MessageBubble({ message, isStreaming }: MessageBubbleProps) {
       <div
         className={cn(
           "max-w-[80%] rounded-lg px-4 py-3",
-          isUser && "bg-primary text-primary-foreground",
-          isAssistant && "bg-muted",
-          isTool && "bg-yellow-500/5 border border-yellow-500/20"
+          isUser && "bg-[#c8ff00] text-[#1a1a1a]",
+          isAssistant && "bg-white border-2 border-foreground/10",
+          isTool && "bg-yellow-50 border border-yellow-200"
         )}
       >
         {isAssistant || isTool ? (
-          <div className="prose prose-sm prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+          <div className="prose prose-sm max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
             <ReactMarkdown>{message.content}</ReactMarkdown>
           </div>
         ) : (

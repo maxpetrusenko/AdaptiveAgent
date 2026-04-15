@@ -26,8 +26,8 @@ export function EvalRunList({ runs, selectedRunId, onSelect }: EvalRunListProps)
         <Card
           key={run.id}
           className={cn(
-            "cursor-pointer transition-colors hover:bg-accent/50",
-            run.id === selectedRunId && "border-primary bg-accent/30"
+            "cursor-pointer border-2 border-foreground/10 transition-colors hover:bg-accent/50",
+            run.id === selectedRunId && "border-[#c8ff00] bg-[#c8ff00]/5"
           )}
           onClick={() => onSelect(run.id)}
         >
@@ -65,12 +65,12 @@ export function EvalRunList({ runs, selectedRunId, onSelect }: EvalRunListProps)
               <div className="text-right">
                 <div
                   className={cn(
-                    "text-2xl font-bold",
+                    "text-3xl font-bold tracking-tight",
                     run.pass_rate >= 0.8
-                      ? "text-green-500"
+                      ? "text-green-600"
                       : run.pass_rate >= 0.5
-                      ? "text-yellow-500"
-                      : "text-red-500"
+                      ? "text-yellow-600"
+                      : "text-red-600"
                   )}
                 >
                   {(run.pass_rate * 100).toFixed(0)}%

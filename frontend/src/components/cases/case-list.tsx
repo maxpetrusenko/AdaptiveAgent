@@ -20,7 +20,7 @@ export function CaseList({ cases }: CaseListProps) {
   return (
     <div className="space-y-2">
       {cases.map((c) => (
-        <Card key={c.id}>
+        <Card key={c.id} className="border-2 border-foreground/10">
           <CardContent className="p-4">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0 flex-1 space-y-2">
@@ -39,9 +39,9 @@ export function CaseList({ cases }: CaseListProps) {
                   </p>
                 </div>
                 {c.tags.length > 0 && (
-                  <div className="flex gap-1">
+                  <div className="flex flex-wrap gap-1">
                     {c.tags.map((tag) => (
-                      <Badge key={tag} variant="outline" className="text-[10px]">
+                      <Badge key={tag} variant="outline" className="text-[10px] border-foreground/15 px-2 py-0">
                         {tag}
                       </Badge>
                     ))}

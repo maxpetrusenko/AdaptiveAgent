@@ -26,7 +26,7 @@ export function PassRateChart({ runs }: PassRateChartProps) {
 
   if (data.length === 0) {
     return (
-      <Card>
+      <Card className="border-2 border-foreground/10">
         <CardHeader>
           <CardTitle className="text-sm">Pass Rate Over Time</CardTitle>
         </CardHeader>
@@ -38,39 +38,40 @@ export function PassRateChart({ runs }: PassRateChartProps) {
   }
 
   return (
-    <Card>
+    <Card className="border-2 border-foreground/10">
       <CardHeader>
         <CardTitle className="text-sm">Pass Rate Over Time</CardTitle>
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={200}>
           <LineChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+            <CartesianGrid strokeDasharray="3 3" stroke="#d4cfc5" />
             <XAxis
               dataKey="date"
-              stroke="hsl(var(--muted-foreground))"
+              stroke="#6b6560"
               fontSize={12}
             />
             <YAxis
-              stroke="hsl(var(--muted-foreground))"
+              stroke="#6b6560"
               fontSize={12}
               domain={[0, 100]}
               tickFormatter={(v: number) => `${v}%`}
             />
             <Tooltip
               contentStyle={{
-                backgroundColor: "hsl(var(--card))",
-                border: "1px solid hsl(var(--border))",
+                backgroundColor: "#ffffff",
+                border: "2px solid #d4cfc5",
                 borderRadius: "8px",
+                color: "#1a1a1a",
               }}
               formatter={(value) => [`${value}%`, "Pass Rate"]}
             />
             <Line
               type="monotone"
               dataKey="passRate"
-              stroke="hsl(var(--primary))"
-              strokeWidth={2}
-              dot={{ fill: "hsl(var(--primary))", r: 4 }}
+              stroke="#c8ff00"
+              strokeWidth={3}
+              dot={{ fill: "#c8ff00", stroke: "#1a1a1a", strokeWidth: 1, r: 5 }}
             />
           </LineChart>
         </ResponsiveContainer>

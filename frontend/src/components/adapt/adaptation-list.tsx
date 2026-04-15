@@ -34,8 +34,8 @@ export function AdaptationList({
         <Card
           key={run.id}
           className={cn(
-            "cursor-pointer transition-colors hover:bg-accent/50",
-            run.id === selectedId && "ring-primary bg-accent/30"
+            "cursor-pointer border-2 border-foreground/10 transition-colors hover:bg-accent/50",
+            run.id === selectedId && "border-[#c8ff00] bg-[#c8ff00]/5"
           )}
           onClick={() => onSelect(run.id)}
         >
@@ -61,9 +61,9 @@ export function AdaptationList({
                       : run.status}
                   </Badge>
                   {run.accepted ? (
-                    <Check className="h-4 w-4 text-green-500" />
+                    <Check className="h-4 w-4 text-green-600" />
                   ) : run.status === "completed" ? (
-                    <X className="h-4 w-4 text-red-500" />
+                    <X className="h-4 w-4 text-red-600" />
                   ) : null}
                 </div>
                 <span className="text-xs text-muted-foreground">
@@ -75,8 +75,8 @@ export function AdaptationList({
                   className={cn(
                     "font-bold",
                     run.before_pass_rate >= 0.8
-                      ? "text-green-500"
-                      : "text-yellow-500"
+                      ? "text-green-600"
+                      : "text-yellow-600"
                   )}
                 >
                   {(run.before_pass_rate * 100).toFixed(0)}%
@@ -87,8 +87,8 @@ export function AdaptationList({
                     "font-bold",
                     run.after_pass_rate != null
                       ? run.after_pass_rate >= 0.8
-                        ? "text-green-500"
-                        : "text-yellow-500"
+                        ? "text-green-600"
+                        : "text-yellow-600"
                       : "text-muted-foreground"
                   )}
                 >

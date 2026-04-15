@@ -2,6 +2,7 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import type { EvalResult } from "@/lib/types";
 
 interface EvalResultsTableProps {
@@ -20,19 +21,20 @@ export function EvalResultsTable({ results }: EvalResultsTableProps) {
   return (
     <div className="space-y-2">
       {results.map((result) => (
-        <Card key={result.id}>
+        <Card key={result.id} className="border-2 border-foreground/10">
           <CardContent className="p-4">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0 flex-1 space-y-2">
                 <div className="flex items-center gap-2">
                   <Badge
-                    variant={
+                    className={cn(
+                      "border-0",
                       result.status === "pass"
-                        ? "default"
+                        ? "bg-green-100 text-green-700"
                         : result.status === "fail"
-                        ? "destructive"
-                        : "secondary"
-                    }
+                        ? "bg-red-100 text-red-700"
+                        : "bg-muted text-muted-foreground"
+                    )}
                   >
                     {result.status}
                   </Badge>

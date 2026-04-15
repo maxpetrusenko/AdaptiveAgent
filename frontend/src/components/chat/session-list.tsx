@@ -20,10 +20,10 @@ export function SessionList({
   onCreate,
 }: SessionListProps) {
   return (
-    <div className="flex h-full w-56 flex-col border-r border-border bg-card">
-      <div className="flex items-center justify-between border-b border-border px-3 py-3">
+    <div className="flex h-full w-56 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
+      <div className="flex items-center justify-between border-b border-sidebar-border px-3 py-3">
         <span className="text-sm font-medium">Sessions</span>
-        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onCreate}>
+        <Button variant="ghost" size="icon" className="h-7 w-7 text-sidebar-foreground hover:text-[#c8ff00]" onClick={onCreate}>
           <Plus className="h-4 w-4" />
         </Button>
       </div>
@@ -41,8 +41,8 @@ export function SessionList({
               className={cn(
                 "flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm transition-colors",
                 session.id === activeSessionId
-                  ? "bg-accent text-accent-foreground"
-                  : "text-muted-foreground hover:bg-accent/50"
+                  ? "bg-[#c8ff00] text-[#1a1a1a] font-medium"
+                  : "text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground"
               )}
             >
               <MessageSquare className="h-3.5 w-3.5 shrink-0" />

@@ -26,6 +26,9 @@ dev = [
     "ruff>=0.8.0",
 ]
 
+[project.scripts]
+adaptive-agent-benchmark = "app.benchmarks.run:main"
+
 [tool.ruff]
 target-version = "py311"
 line-length = 100

@@ -49,7 +49,7 @@ export function CreateCaseForm({ onSubmit }: CreateCaseFormProps) {
   }
 
   return (
-    <Card>
+    <Card className="border-2 border-foreground/10">
       <CardHeader>
         <CardTitle className="text-sm">New Test Case</CardTitle>
       </CardHeader>
@@ -78,7 +78,7 @@ export function CreateCaseForm({ onSubmit }: CreateCaseFormProps) {
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTags(e.target.value)}
           />
           <div className="flex gap-2">
-            <Button type="submit" size="sm">
+            <Button type="submit" size="sm" className="bg-[#c8ff00] text-[#1a1a1a] hover:bg-[#b8ef00] font-semibold">
               Create
             </Button>
             <Button
