@@ -9,6 +9,42 @@ from app.llm import build_chat_model
 TOOLS = [calculator, current_time]
 
 
+def _extract_usage_from_ai_message(message: AIMessage) -> dict[str, int] | None:
+    usage = getattr(message, "usage_metadata", None) or {}
+    response_metadata = getattr(message, "response_metadata", None) or {}
+    token_usage = (
+        response_metadata.get("token_usage", {})
+        if isinstance(response_metadata, dict)
+        else {}
+    )
+
+    prompt_tokens = int(
+        usage.get("input_tokens")
+        or token_usage.get("prompt_tokens")
+        or token_usage.get("input_tokens")
+        or 0
+    )
+    completion_tokens = int(
+        usage.get("output_tokens")
+        or token_usage.get("completion_tokens")
+        or token_usage.get("output_tokens")
+        or 0
+    )
+    total_tokens = int(
+        usage.get("total_tokens")
+        or token_usage.get("total_tokens")
+        or (prompt_tokens + completion_tokens)
+    )
+
+    if total_tokens <= 0 and prompt_tokens <= 0 and completion_tokens <= 0:
+        return None
+    return {
+        "prompt_tokens": prompt_tokens,
+        "completion_tokens": completion_tokens,
+        "total_tokens": total_tokens,
+    }
+
+
 def create_agent(system_prompt: str | None = None):
     """Create a LangGraph agent with tools."""
     from app.agent.prompts import SYSTEM_PROMPT_V1
@@ -69,6 +105,8 @@ async def run_agent(
     tool_calls_data = []
     tool_results_data = []
     tool_names_by_id = {}
+    usage_totals = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+    saw_usage = False
 
     for msg in final_messages:
         if isinstance(msg, AIMessage):
@@ -76,6 +114,11 @@ async def run_agent(
                 assistant_content = (
                     msg.content if isinstance(msg.content, str) else str(msg.content)
                 )
+            usage = _extract_usage_from_ai_message(msg)
+            if usage is not None:
+                saw_usage = True
+                for key, value in usage.items():
+                    usage_totals[key] += value
             if msg.tool_calls:
                 for tc in msg.tool_calls:
                     tool_call_id = tc.get("id", "")
@@ -102,6 +145,7 @@ async def run_agent(
         "content": assistant_content,
         "tool_calls": tool_calls_data if tool_calls_data else None,
         "tool_results": tool_results_data if tool_results_data else None,
+        "usage": usage_totals if saw_usage else None,
     }
 
 

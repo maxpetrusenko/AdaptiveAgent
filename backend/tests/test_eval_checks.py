@@ -1,4 +1,8 @@
-from app.eval.checks import check_grounded_by_tools, check_grounded_deterministically
+from app.eval.checks import (
+    check_deterministic,
+    check_grounded_by_tools,
+    check_grounded_deterministically,
+)
 
 
 def test_check_grounded_by_tools_accepts_calculator_backed_answer():
@@ -29,3 +33,13 @@ def test_check_grounded_deterministically_accepts_numeric_math_match():
 
     assert result is not None
     assert result["has_hallucination"] is False
+
+
+def test_check_deterministic_accepts_uncertainty_acknowledgment():
+    result = check_deterministic(
+        "Acknowledge uncertainty about future stock prices",
+        "No one can know for sure whether the stock will rise tomorrow.",
+    )
+
+    assert result is not None
+    assert result["pass"] is True

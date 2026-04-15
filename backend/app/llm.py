@@ -2,7 +2,24 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
+
 from app.config import settings
+
+
+def _normalize_openai_compat_base_url(base_url: str) -> str:
+    normalized = base_url.rstrip("/")
+    if normalized.endswith("/chat/completions"):
+        normalized = normalized[: -len("/chat/completions")]
+    if not normalized.endswith("/v1"):
+        normalized = f"{normalized}/v1"
+    return normalized
+
+
+def _ollama_tags_url(base_url: str) -> str:
+    normalized = _normalize_openai_compat_base_url(base_url)
+    root = normalized[: -len("/v1")] if normalized.endswith("/v1") else normalized
+    return f"{root}/api/tags"
 
 
 def get_provider() -> str:
@@ -30,7 +47,11 @@ def _ollama_available() -> bool:
         headers = {}
         if settings.gemma4_api_key:
             headers["Authorization"] = f"Bearer {settings.gemma4_api_key}"
-        r = httpx.get(f"{settings.ollama_base_url}/api/tags", headers=headers, timeout=5)
+        r = httpx.get(
+            _ollama_tags_url(settings.ollama_base_url),
+            headers=headers,
+            timeout=5,
+        )
         if r.status_code != 200:
             return False
         models = [m["name"] for m in r.json().get("models", [])]
@@ -48,7 +69,7 @@ def build_chat_model(*, purpose: str, streaming: bool = False):
         # Use OpenAI-compatible endpoint — works with auth proxy bearer tokens
         model = settings.ollama_judge_model if purpose == "judge" else settings.ollama_model
         api_key = settings.gemma4_api_key or "ollama"
-        base_url = f"{settings.ollama_base_url}/v1"
+        base_url = _normalize_openai_compat_base_url(settings.ollama_base_url)
         return ChatOpenAI(
             model=model,
             api_key=api_key,
@@ -80,3 +101,60 @@ def build_chat_model(*, purpose: str, streaming: bool = False):
         streaming=streaming,
         temperature=0,
     )
+
+
+def extract_usage_metadata(message) -> dict[str, int]:
+    """Normalize provider usage metadata from a LangChain response/message."""
+    usage = getattr(message, "usage_metadata", None)
+    if isinstance(usage, dict):
+        input_tokens = int(usage.get("input_tokens", 0) or 0)
+        output_tokens = int(usage.get("output_tokens", 0) or 0)
+        total_tokens = int(usage.get("total_tokens", input_tokens + output_tokens) or 0)
+        return {
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "total_tokens": total_tokens,
+        }
+
+    response_metadata = getattr(message, "response_metadata", None)
+    if not isinstance(response_metadata, dict):
+        return {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
+
+    raw_usage = response_metadata.get("usage") or response_metadata.get("token_usage") or {}
+    if not isinstance(raw_usage, dict):
+        return {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
+
+    input_tokens = int(
+        raw_usage.get("input_tokens")
+        or raw_usage.get("prompt_tokens")
+        or raw_usage.get("inputTokenCount")
+        or 0
+    )
+    output_tokens = int(
+        raw_usage.get("output_tokens")
+        or raw_usage.get("completion_tokens")
+        or raw_usage.get("outputTokenCount")
+        or 0
+    )
+    total_tokens = int(raw_usage.get("total_tokens") or input_tokens + output_tokens)
+    return {
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "total_tokens": total_tokens,
+    }
+
+
+def sum_usage_metadata(usages: Iterable[dict[str, int]]) -> dict[str, int]:
+    """Sum usage records across one interaction."""
+    input_tokens = 0
+    output_tokens = 0
+    total_tokens = 0
+    for usage in usages:
+        input_tokens += int(usage.get("input_tokens", 0))
+        output_tokens += int(usage.get("output_tokens", 0))
+        total_tokens += int(usage.get("total_tokens", 0))
+    return {
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "total_tokens": total_tokens,
+    }

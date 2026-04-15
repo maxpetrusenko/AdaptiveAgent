@@ -1,0 +1,76 @@
+{
+  "baseline_prompt_version": 1,
+  "final_prompt_version": 2,
+  "adaptation": {
+    "run_id": "e266a296-ce18-4701-acf0-1c008063babd",
+    "accepted": true,
+    "before_pass_rate": 0.75,
+    "after_pass_rate": 1.0,
+    "before_version_id": "50d51f38-6a09-4c9d-952e-9e1983c927ba",
+    "after_version_id": "9821036a-63fd-4c68-8c0c-25b780b6e759"
+  },
+  "baseline": {
+    "runs": [
+      {
+        "run_id": "6aad92a4-1ae1-431e-94bc-b1c2135970c7",
+        "prompt_version_id": "50d51f38-6a09-4c9d-952e-9e1983c927ba",
+        "pass_rate": 0.75,
+        "passed": 3,
+        "failed": 1,
+        "hallucination_failures": 0,
+        "protected_failures": 1,
+        "tag_pass_rates": {
+          "basic": 1.0,
+          "benchmark": 0.75,
+          "factual": 1.0,
+          "geography": 1.0,
+          "greeting": 1.0,
+          "math": 1.0,
+          "protected": 0.75,
+          "time": 0.0,
+          "tool-use": 0.5
+        }
+      }
+    ],
+    "mean_pass_rate": 0.75,
+    "std_pass_rate": 0.0
+  },
+  "post_adaptation": {
+    "runs": [
+      {
+        "run_id": "448ac919-5bbd-417e-8686-cc9d9d9bc73f",
+        "prompt_version_id": "9821036a-63fd-4c68-8c0c-25b780b6e759",
+        "pass_rate": 1.0,
+        "passed": 4,
+        "failed": 0,
+        "hallucination_failures": 0,
+        "protected_failures": 0,
+        "tag_pass_rates": {
+          "basic": 1.0,
+          "benchmark": 1.0,
+          "factual": 1.0,
+          "geography": 1.0,
+          "greeting": 1.0,
+          "math": 1.0,
+          "protected": 1.0,
+          "time": 1.0,
+          "tool-use": 1.0
+        }
+      }
+    ],
+    "mean_pass_rate": 1.0,
+    "std_pass_rate": 0.0
+  },
+  "delta": {
+    "mean_pass_rate_delta": 0.25,
+    "active_prompt_changed": true
+  },
+  "config": {
+    "repeats": 1,
+    "case_tag": "benchmark",
+    "max_cases": 4,
+    "consistency_repeats": 0,
+    "stress_baseline": "tool-agnostic",
+    "case_count": 4
+  }
+}

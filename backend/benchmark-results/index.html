@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Benchmark Reports</title>
+  <style>
+    :root {
+      --bg: #f3efe7;
+      --panel: #fffaf2;
+      --ink: #1f1b16;
+      --muted: #6b6257;
+      --accent: #b04a1f;
+      --accent-soft: #f0d3c2;
+      --grid: #d8c9bb;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Georgia, "Iowan Old Style", serif;
+      background:
+        radial-gradient(circle at top left, rgba(176,74,31,0.14), transparent 28%),
+        linear-gradient(180deg, #f8f2ea, var(--bg));
+      color: var(--ink);
+    }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 24px 80px; }
+    h1, h2 { margin: 0; font-weight: 600; }
+    h1 { font-size: 40px; line-height: 1.05; letter-spacing: -0.03em; }
+    h2 { font-size: 22px; margin-bottom: 16px; }
+    p { color: var(--muted); font-size: 17px; line-height: 1.5; }
+    .hero { display: grid; gap: 14px; margin-bottom: 28px; }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 14px;
+      margin: 28px 0 34px;
+    }
+    .card, .panel {
+      background: color-mix(in srgb, var(--panel) 92%, white 8%);
+      border: 1px solid rgba(31,27,22,0.08);
+      border-radius: 18px;
+      box-shadow: 0 12px 36px rgba(58, 44, 33, 0.08);
+    }
+    .card { padding: 18px; }
+    .panel { padding: 18px 18px 10px; margin-bottom: 18px; }
+    .label { text-transform: uppercase; letter-spacing: 0.12em; font-size: 11px; color: var(--muted); }
+    .value { font-size: 34px; margin-top: 10px; }
+    .subtitle { margin-top: 6px; color: var(--muted); font-size: 13px; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { text-align: left; padding: 11px 10px; border-top: 1px solid rgba(31,27,22,0.08); }
+    th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); border-top: 0; }
+    .chart { width: 100%; height: auto; display: block; }
+    .bar { fill: var(--accent); opacity: 0.86; }
+    .bar-value { fill: var(--ink); font-size: 12px; }
+    .axis-label { fill: var(--muted); font-size: 12px; }
+    .grid { stroke: var(--grid); stroke-width: 1; }
+    .line { fill: none; stroke: var(--accent); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+    .dot { fill: var(--accent); }
+    .footer { margin-top: 30px; color: var(--muted); font-size: 13px; }
+    a { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <header class="hero">
+      <h1>Benchmark Reports</h1>
+      <p>Static HTML views for every benchmark JSON artifact in this directory.</p>
+    </header>
+    <section class="cards"><section class='card'><div class='label'>reports</div><div class='value'>6</div></section></section>
+    <table><thead><tr><th>html</th><th>source json</th></tr></thead><tbody><tr><td><a href='compare-smoke-live.html'>compare-smoke-live.html</a></td><td>compare-smoke-live.json</td></tr><tr><td><a href='compare.html'>compare.html</a></td><td>compare.json</td></tr><tr><td><a href='fast.html'>fast.html</a></td><td>fast.json</td></tr><tr><td><a href='full.html'>full.html</a></td><td>full.json</td></tr><tr><td><a href='stress-live.html'>stress-live.html</a></td><td>stress-live.json</td></tr><tr><td><a href='stress-tool-use.html'>stress-tool-use.html</a></td><td>stress-tool-use.json</td></tr></tbody></table>
+    <div class="footer">Generated from benchmark JSON.</div>
+  </main>
+</body>
+</html>

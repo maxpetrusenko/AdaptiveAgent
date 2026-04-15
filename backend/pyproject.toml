@@ -31,6 +31,9 @@ dev = [
 [project.scripts]
 adaptive-agent-benchmark = "app.benchmarks.run:main"
 adaptive-agent-compare = "app.benchmarks.compare:main"
+adaptive-agent-adversarial = "app.benchmarks.adversarial:main"
+adaptive-agent-judge-calibration = "app.benchmarks.judge_calibration:main"
+adaptive-agent-benchmark-html = "app.benchmarks.report_html:main"
 
 [tool.ruff]
 target-version = "py311"

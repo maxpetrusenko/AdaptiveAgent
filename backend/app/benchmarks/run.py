@@ -14,6 +14,7 @@ from statistics import mean, pstdev
 from sqlalchemy import select
 
 from app.adapt.loop import create_adaptation_run, run_adaptation_loop
+from app.benchmarks.report_html import render_report_file
 from app.database import async_session, init_db
 from app.eval.runner import run_eval_suite
 from app.models import EvalCase, EvalResult, EvalRun, PromptVersion
@@ -77,8 +78,7 @@ async def _summarize_run(db, run: EvalRun) -> RunSummary:
                 tag_pass_counts[tag] = tag_pass_counts.get(tag, 0) + 1
 
     tag_pass_rates = {
-        tag: tag_pass_counts.get(tag, 0) / total
-        for tag, total in sorted(tag_counts.items())
+        tag: tag_pass_counts.get(tag, 0) / total for tag, total in sorted(tag_counts.items())
     }
 
     return RunSummary(
@@ -139,8 +139,10 @@ async def _apply_stress_baseline(db, mode: str) -> None:
         return
 
     prompts = (
-        await db.execute(select(PromptVersion).order_by(PromptVersion.version.asc()))
-    ).scalars().all()
+        (await db.execute(select(PromptVersion).order_by(PromptVersion.version.asc())))
+        .scalars()
+        .all()
+    )
     if not prompts:
         raise RuntimeError("No prompt versions available for stress baseline")
 
@@ -164,11 +166,7 @@ async def _select_case_ids(
     cases = (await db.execute(query)).scalars().all()
 
     if tag:
-        cases = [
-            case
-            for case in cases
-            if isinstance(case.tags, list) and tag in case.tags
-        ]
+        cases = [case for case in cases if isinstance(case.tags, list) and tag in case.tags]
     if max_cases is not None:
         cases = cases[:max_cases]
     return [case.id for case in cases]
@@ -318,8 +316,10 @@ async def _async_main() -> int:
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    html_out = render_report_file(args.out)
 
     print(f"Benchmark report written to {args.out}")
+    print(f"HTML report written to {html_out}")
     print(
         "Baseline mean pass rate: "
         f"{report['baseline']['mean_pass_rate']:.1%} "

@@ -9,13 +9,13 @@ There are now two benchmark modes:
 1. `run.py`: single-system regression and adaptation benchmark
 2. `compare.py`: comparative leaderboard against baselines on a held-out suite
 
-The benchmark runner does three things:
+The single-system benchmark runner does three things:
 
 1. repeated baseline evals on the current active prompt
 2. one full adaptation run
 3. repeated post-adaptation evals on the new active prompt
 
-It writes a JSON report with:
+`run.py` writes a JSON report with:
 
 - baseline mean/std pass rate
 - post-adaptation mean/std pass rate
@@ -23,6 +23,7 @@ It writes a JSON report with:
 - prompt version change
 - per-run hallucination and protected-case failures
 - per-tag pass rates
+- sibling HTML report with charts
 
 ## Why this shape
 
@@ -37,6 +38,18 @@ Practical takeaway:
 - stronger verifier
 - repeated measurement
 - protected-suite no-regression gate
+
+`compare.py` now adds:
+
+- 30+ held-out eval cases across tool use, reasoning, factual recall, safety, uncertainty, and multi-turn behavior
+- one external-style baseline: `sdk_tool_agent`, a provider-SDK manual tool loop outside the repo's LangGraph agent
+- repeated-run means, std, and bootstrap 95 percent confidence intervals
+- sequential multi-cycle adaptation trajectories
+- explicit gain, stability, and alignment-convergence fields
+- judge calibration on a labeled mini-set
+- adversarial harness checks for null-agent and judge-injection failures
+- exact sign tests on adaptive-vs-baseline win/loss counts
+- sibling HTML report with charts and a benchmark-results index page
 
 ## Prerequisites
 
@@ -64,10 +77,42 @@ Or via the installed script:
 adaptive-agent-benchmark --repeats 3 --out benchmark-results/latest.json
 ```
 
+Render HTML for all benchmark JSON artifacts in the directory:
+
+```bash
+adaptive-agent-benchmark-html --dir benchmark-results
+```
+
 Comparative benchmark:
 
 ```bash
-adaptive-agent-compare --out benchmark-results/compare.json
+adaptive-agent-compare \
+  --repeats 3 \
+  --adaptation-cycles 3 \
+  --out benchmark-results/compare.json
+```
+
+Quick smoke run:
+
+```bash
+adaptive-agent-compare \
+  --repeats 1 \
+  --adaptation-cycles 1 \
+  --max-train-cases 4 \
+  --max-eval-cases 8 \
+  --out benchmark-results/compare-smoke.json
+```
+
+Judge calibration only:
+
+```bash
+adaptive-agent-judge-calibration
+```
+
+Adversarial harness only:
+
+```bash
+adaptive-agent-adversarial --max-cases 12
 ```
 
 If the default suite is already saturated, prove the loop itself on a stress baseline:
@@ -97,8 +142,14 @@ Good comparative result:
 
 - `adaptive_agent` beats `direct_llm`
 - `adaptive_agent` beats `weak_static_agent`
+- `adaptive_agent` beats `sdk_tool_agent` or at least explains the gap
 - `adaptive_agent` closes the gap to `seed_tool_agent`
 - pairwise deltas are positive on the held-out split
+- sign tests on win/loss counts are directionally supportive
+- adaptive trajectory improves or stays flat across cycles
+- protected failures and hallucinations do not regress
+- null agent and injection agent stay at or near zero pass rate
+- judge calibration mismatches are rare and inspectable
 
 Bad result:
 
@@ -106,10 +157,15 @@ Bad result:
 - prompt unchanged
 - no meaningful pass-rate delta
 - protected or hallucination regressions
+- null agent gets credit for cases
+- injection agent meaningfully changes scores
+- judge calibration disagrees with obvious labeled cases
 
 ## Suggested benchmark cadence
 
 - `--repeats 3` for quick iteration
 - `--repeats 5` before claiming improvement
+- `--adaptation-cycles 3` is the default research pass
+- use `--max-eval-cases` and `--max-train-cases` for smoke runs only
 - compare JSON reports over time, not one-off best runs
 - use `compare.py` when you need a leaderboard, not just a single-system health check

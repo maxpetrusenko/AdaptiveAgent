@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>compare • comparative benchmark</title>
+  <style>
+    :root {
+      --bg: #f3efe7;
+      --panel: #fffaf2;
+      --ink: #1f1b16;
+      --muted: #6b6257;
+      --accent: #b04a1f;
+      --accent-soft: #f0d3c2;
+      --grid: #d8c9bb;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Georgia, "Iowan Old Style", serif;
+      background:
+        radial-gradient(circle at top left, rgba(176,74,31,0.14), transparent 28%),
+        linear-gradient(180deg, #f8f2ea, var(--bg));
+      color: var(--ink);
+    }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 24px 80px; }
+    h1, h2 { margin: 0; font-weight: 600; }
+    h1 { font-size: 40px; line-height: 1.05; letter-spacing: -0.03em; }
+    h2 { font-size: 22px; margin-bottom: 16px; }
+    p { color: var(--muted); font-size: 17px; line-height: 1.5; }
+    .hero { display: grid; gap: 14px; margin-bottom: 28px; }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 14px;
+      margin: 28px 0 34px;
+    }
+    .card, .panel {
+      background: color-mix(in srgb, var(--panel) 92%, white 8%);
+      border: 1px solid rgba(31,27,22,0.08);
+      border-radius: 18px;
+      box-shadow: 0 12px 36px rgba(58, 44, 33, 0.08);
+    }
+    .card { padding: 18px; }
+    .panel { padding: 18px 18px 10px; margin-bottom: 18px; }
+    .label { text-transform: uppercase; letter-spacing: 0.12em; font-size: 11px; color: var(--muted); }
+    .value { font-size: 34px; margin-top: 10px; }
+    .subtitle { margin-top: 6px; color: var(--muted); font-size: 13px; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { text-align: left; padding: 11px 10px; border-top: 1px solid rgba(31,27,22,0.08); }
+    th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); border-top: 0; }
+    .chart { width: 100%; height: auto; display: block; }
+    .bar { fill: var(--accent); opacity: 0.86; }
+    .bar-value { fill: var(--ink); font-size: 12px; }
+    .axis-label { fill: var(--muted); font-size: 12px; }
+    .grid { stroke: var(--grid); stroke-width: 1; }
+    .line { fill: none; stroke: var(--accent); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+    .dot { fill: var(--accent); }
+    .footer { margin-top: 30px; color: var(--muted); font-size: 13px; }
+    a { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <header class="hero">
+      <h1>compare • comparative benchmark</h1>
+      <p>Comparative benchmark with adaptive trajectory, pairwise deltas, judge calibration, and hardening checks.</p>
+    </header>
+    <section class="cards"><section class='card'><div class='label'>systems</div><div class='value'>4</div></section><section class='card'><div class='label'>train cases</div><div class='value'>0</div></section><section class='card'><div class='label'>eval cases</div><div class='value'>0</div></section><section class='card'><div class='label'>adaptive final</div><div class='value'>100.0%</div></section></section>
+    <section class='panel'><h2>Leaderboard pass rate</h2><svg viewBox='0 0 760 220' class='chart'><text x='12' y='48.5' class='axis-label'>adaptive_agent</text><rect x='120' y='28.0' width='616.0' height='28.5' rx='8' class='bar'/><text x='744.0' y='48.5' class='bar-value'>100.0%</text><text x='12' y='89.0' class='axis-label'>seed_tool_agent</text><rect x='120' y='68.5' width='572.0' height='28.5' rx='8' class='bar'/><text x='700.0' y='89.0' class='bar-value'>92.9%</text><text x='12' y='129.5' class='axis-label'>weak_static_agent</text><rect x='120' y='109.0' width='528.0' height='28.5' rx='8' class='bar'/><text x='656.0' y='129.5' class='bar-value'>85.7%</text><text x='12' y='170.0' class='axis-label'>direct_llm</text><rect x='120' y='149.5' width='484.0' height='28.5' rx='8' class='bar'/><text x='612.0' y='170.0' class='bar-value'>78.6%</text></svg></section><section class='panel'><h2>Adaptive pairwise delta</h2><svg viewBox='0 0 760 220' class='chart'><text x='12' y='58.2' class='axis-label'>direct_llm</text><rect x='120' y='28.0' width='132.0' height='42.0' rx='8' class='bar'/><text x='260.0' y='58.2' class='bar-value'>21.4%</text><text x='12' y='112.2' class='axis-label'>weak_static_agent</text><rect x='120' y='82.0' width='88.0' height='42.0' rx='8' class='bar'/><text x='216.0' y='112.2' class='bar-value'>14.3%</text><text x='12' y='166.2' class='axis-label'>seed_tool_agent</text><rect x='120' y='136.0' width='44.0' height='42.0' rx='8' class='bar'/><text x='172.0' y='166.2' class='bar-value'>7.1%</text></svg></section><section class='panel'><h2>Adaptive trajectory</h2><svg viewBox='0 0 760 260' class='chart'><line x1='52' y1='20.0' x2='740' y2='20.0' class='grid'/><line x1='52' y1='69.0' x2='740' y2='69.0' class='grid'/><line x1='52' y1='118.0' x2='740' y2='118.0' class='grid'/><line x1='52' y1='167.0' x2='740' y2='167.0' class='grid'/><line x1='52' y1='216.0' x2='740' y2='216.0' class='grid'/><path d='M 52.0 216.0' class='line'/><circle cx='52.0' cy='216.0' r='5' class='dot'/><text x='52.0' y='206.0' text-anchor='middle' class='bar-value'>0.0%</text><text x='52.0' y='246.0' text-anchor='middle' class='axis-label'>initial</text></svg></section><table><thead><tr><th>rank</th><th>system</th><th>pass rate</th><th>latency ms</th><th>hallucinations</th></tr></thead><tbody><tr><td>1</td><td>adaptive_agent</td><td>100.0%</td><td>3079</td><td>0.0</td></tr><tr><td>2</td><td>seed_tool_agent</td><td>92.9%</td><td>3386</td><td>0.0</td></tr><tr><td>3</td><td>weak_static_agent</td><td>85.7%</td><td>2758</td><td>0.0</td></tr><tr><td>4</td><td>direct_llm</td><td>78.6%</td><td>3184</td><td>1.0</td></tr></tbody></table><table><thead><tr><th>baseline</th><th>delta</th><th>wins</th><th>losses</th><th>ties</th><th>sign test p</th></tr></thead><tbody><tr><td>direct_llm</td><td>21.4%</td><td>3</td><td>0</td><td>11</td><td>n/a</td></tr><tr><td>weak_static_agent</td><td>14.3%</td><td>2</td><td>0</td><td>12</td><td>n/a</td></tr><tr><td>seed_tool_agent</td><td>7.1%</td><td>1</td><td>0</td><td>13</td><td>n/a</td></tr></tbody></table>
+    <div class="footer">Generated from benchmark JSON.</div>
+  </main>
+</body>
+</html>
