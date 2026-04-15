@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sparkles, Loader2 } from "lucide-react";
@@ -46,11 +46,29 @@ export default function AdaptPage() {
     }
   }, []);
 
-  const initialized = useRef<boolean | null>(null);
-  if (initialized.current === null) {
-    initialized.current = true;
-    loadRuns();
-  }
+  useEffect(() => {
+    let cancelled = false;
+
+    const bootstrapRuns = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/adapt/runs`);
+        if (!res.ok || cancelled) {
+          return;
+        }
+        const data = await res.json();
+        if (!cancelled) {
+          setRuns(data);
+        }
+      } catch (err) {
+        console.error("Load adapt runs error:", err);
+      }
+    };
+
+    void bootstrapRuns();
+    return () => {
+      cancelled = true;
+    };
+  }, [loadRuns]);
 
   const handleSelect = useCallback(
     (id: string) => {

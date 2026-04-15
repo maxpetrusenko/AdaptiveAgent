@@ -10,7 +10,7 @@ from app.api.dashboard import router as dashboard_router
 from app.api.evals import router as evals_router
 from app.config import settings
 from app.database import async_session, init_db
-from app.seed import seed_eval_cases, seed_prompt_v1
+from app.seed import ensure_seed_eval_case_tags, seed_eval_cases, seed_prompt_v1
 
 
 @asynccontextmanager
@@ -20,6 +20,7 @@ async def lifespan(app: FastAPI):
     async with async_session() as db:
         await seed_prompt_v1(db)
         await seed_eval_cases(db)
+        await ensure_seed_eval_case_tags(db)
     yield
 
 

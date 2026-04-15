@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Play, Loader2 } from "lucide-react";
 import { EvalRunList } from "@/components/evals/eval-run-list";
@@ -40,11 +40,29 @@ export default function EvalsPage() {
     }
   }, []);
 
-  const initialized = useRef<boolean | null>(null);
-  if (initialized.current === null) {
-    initialized.current = true;
-    loadRuns();
-  }
+  useEffect(() => {
+    let cancelled = false;
+
+    const bootstrapRuns = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/evals/runs`);
+        if (!res.ok || cancelled) {
+          return;
+        }
+        const data = await res.json();
+        if (!cancelled) {
+          setRuns(data);
+        }
+      } catch (err) {
+        console.error("Load runs error:", err);
+      }
+    };
+
+    void bootstrapRuns();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleSelectRun = (id: string) => {
     setSelectedRunId(id);

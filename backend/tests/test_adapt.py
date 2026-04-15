@@ -1,4 +1,5 @@
 import pytest
+from sqlalchemy import select
 
 
 @pytest.mark.asyncio
@@ -88,7 +89,7 @@ async def test_adaptation_run_detail_with_data(client):
 async def test_run_adaptation_loop_accepts_improved_prompt(monkeypatch):
     from app.adapt.loop import create_adaptation_run, run_adaptation_loop
     from app.database import async_session
-    from app.models import EvalResult, EvalRun, PromptVersion
+    from app.models import EvalCase, EvalResult, EvalRun, PromptVersion
 
     call_count = {"value": 0}
 
@@ -97,7 +98,7 @@ async def test_run_adaptation_loop_accepts_improved_prompt(monkeypatch):
         is_before = call_count["value"] == 1
         prompt = (
             await db.execute(
-                __import__("sqlalchemy").select(PromptVersion).where(PromptVersion.is_active == True)  # noqa: E712
+                select(PromptVersion).where(PromptVersion.is_active == True)  # noqa: E712
             )
         ).scalar_one()
 
@@ -159,9 +160,6 @@ async def test_run_adaptation_loop_accepts_improved_prompt(monkeypatch):
         "app.adapt.loop.generate_improved_prompt", fake_generate_improved_prompt
     )
 
-    from sqlalchemy import select
-    from app.models import EvalCase
-
     async with async_session() as db:
         db.add(
             PromptVersion(
@@ -210,7 +208,6 @@ async def test_run_adaptation_loop_rejects_regression(monkeypatch):
     from app.adapt.loop import create_adaptation_run, run_adaptation_loop
     from app.database import async_session
     from app.models import EvalCase, EvalResult, EvalRun, PromptVersion
-    from sqlalchemy import select
 
     call_count = {"value": 0}
 
@@ -239,7 +236,9 @@ async def test_run_adaptation_loop_rejects_regression(monkeypatch):
             await db.commit()
             await db.refresh(run)
         else:
-            existing = (await db.execute(select(EvalRun).where(EvalRun.id == eval_run_id))).scalar_one()
+            existing = (
+                await db.execute(select(EvalRun).where(EvalRun.id == eval_run_id))
+            ).scalar_one()
             existing.status = "completed"
             existing.passed = passed
             existing.failed = failed

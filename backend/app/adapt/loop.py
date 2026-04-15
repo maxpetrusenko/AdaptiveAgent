@@ -103,11 +103,13 @@ async def run_adaptation_loop(db: AsyncSession, adaptation_run_id: str) -> Adapt
             if r.error and "hallucination" in (r.error or "").lower()
         )
 
-        # Count protected (manual seed) case results
-        protected_cases = await db.execute(
-            select(EvalCase.id).where(EvalCase.source == "manual")
-        )
-        protected_ids = {c for c in protected_cases.scalars().all()}
+        # Count explicitly protected seed case results
+        protected_cases = await db.execute(select(EvalCase.id, EvalCase.tags))
+        protected_ids = set()
+        for case_id, tags in protected_cases.all():
+            tags = tags if isinstance(tags, list) else []
+            if "protected" in tags:
+                protected_ids.add(case_id)
         protected_total = len(protected_ids)
 
         before_protected_pass = sum(

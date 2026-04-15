@@ -1,4 +1,5 @@
 import pytest
+from sqlalchemy import select
 
 
 @pytest.mark.asyncio
@@ -31,7 +32,7 @@ async def test_benchmark_report_smoke(monkeypatch):
     async def fake_run_eval_suite(db, eval_run_id=None):
         prompt = (
             await db.execute(
-                __import__("sqlalchemy").select(PromptVersion).where(PromptVersion.is_active == True)  # noqa: E712
+                select(PromptVersion).where(PromptVersion.is_active == True)  # noqa: E712
             )
         ).scalar_one()
         run = EvalRun(
@@ -79,7 +80,7 @@ async def test_benchmark_report_smoke(monkeypatch):
 
         prompt = (
             await db.execute(
-                __import__("sqlalchemy").select(PromptVersion).where(PromptVersion.is_active == True)  # noqa: E712
+                select(PromptVersion).where(PromptVersion.is_active == True)  # noqa: E712
             )
         ).scalar_one()
         prompt.is_active = False
@@ -94,7 +95,7 @@ async def test_benchmark_report_smoke(monkeypatch):
         )
         run = (
             await db.execute(
-                __import__("sqlalchemy").select(AdaptationRun).where(AdaptationRun.id == run_id)
+                select(AdaptationRun).where(AdaptationRun.id == run_id)
             )
         ).scalar_one()
         run.accepted = True

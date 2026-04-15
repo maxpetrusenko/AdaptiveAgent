@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useState, startTransition } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   TrendingUp,
   Shield,
   DollarSign,
   FlaskConical,
+  Repeat,
 } from "lucide-react";
 import {
   LineChart,
@@ -27,36 +28,35 @@ export default function DashboardPage() {
     { date: string; passRate: number }[]
   >([]);
 
-  const loadMetrics = useCallback(async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/dashboard/metrics`);
-      if (res.ok) {
-        const data = await res.json();
-        setMetrics(data);
-        if (data.recent_runs) {
+  useEffect(() => {
+    const loadMetrics = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/dashboard/metrics`);
+        if (!res.ok) {
+          return;
+        }
+        const data: DashboardMetrics = await res.json();
+        startTransition(() => {
+          setMetrics(data);
           setRecentRuns(
-            data.recent_runs.map((r: { date: string; pass_rate: number }) => ({
-              date: new Date(r.date).toLocaleDateString(),
-              passRate: Math.round((r.pass_rate ?? 0) * 100),
+            (data.recent_runs ?? []).map((run) => ({
+              date: new Date(run.date).toLocaleDateString(),
+              passRate: Math.round((run.pass_rate ?? 0) * 100),
             }))
           );
-        }
+        });
+      } catch (err) {
+        console.error("Load metrics error:", err);
       }
-    } catch (err) {
-      console.error("Load metrics error:", err);
-    }
-  }, []);
+    };
 
-  const initialized = useRef<boolean | null>(null);
-  if (initialized.current === null) {
-    initialized.current = true;
-    loadMetrics();
-  }
+    void loadMetrics();
+    const interval = setInterval(() => {
+      void loadMetrics();
+    }, 10000);
 
-  useEffect(() => {
-    const interval = setInterval(loadMetrics, 10000);
     return () => clearInterval(interval);
-  }, [loadMetrics]);
+  }, []);
 
   const cards = [
     {
@@ -102,6 +102,24 @@ export default function DashboardPage() {
       description: metrics?.avg_cost != null ? "Per eval case" : "No data yet",
       icon: DollarSign,
       color: "",
+    },
+    {
+      title: "Consistency",
+      value:
+        metrics?.consistency_score != null
+          ? `${(metrics.consistency_score * 100).toFixed(0)}%`
+          : "\u2014",
+      description:
+        metrics?.consistency_score != null
+          ? "Latest eval run"
+          : "No data yet",
+      icon: Repeat,
+      color:
+        metrics?.consistency_score != null
+          ? metrics.consistency_score >= 0.8
+            ? "text-green-500"
+            : "text-yellow-500"
+          : "",
     },
     {
       title: "Eval Cases",

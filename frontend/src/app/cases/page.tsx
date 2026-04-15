@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { CaseList } from "@/components/cases/case-list";
 import { CreateCaseForm } from "@/components/cases/create-case-form";
 import type { EvalCase } from "@/lib/types";
@@ -22,11 +22,29 @@ export default function CasesPage() {
     }
   }, []);
 
-  const initialized = useRef<boolean | null>(null);
-  if (initialized.current === null) {
-    initialized.current = true;
-    loadCases();
-  }
+  useEffect(() => {
+    let cancelled = false;
+
+    const bootstrapCases = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/cases`);
+        if (!res.ok || cancelled) {
+          return;
+        }
+        const data = await res.json();
+        if (!cancelled) {
+          setCases(data);
+        }
+      } catch (err) {
+        console.error("Load cases error:", err);
+      }
+    };
+
+    void bootstrapCases();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleCreateCase = async (data: {
     name: string;

@@ -84,7 +84,43 @@
   --sidebar-ring: #c8ff00;
 }
 
-/* Keep dark mode for users who toggle */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #141210;
+    --foreground: #f5f0e8;
+    --card: #1e1c19;
+    --card-foreground: #f5f0e8;
+    --popover: #1e1c19;
+    --popover-foreground: #f5f0e8;
+    --primary: #c8ff00;
+    --primary-foreground: #1a1a1a;
+    --secondary: #2a2723;
+    --secondary-foreground: #f5f0e8;
+    --muted: #2a2723;
+    --muted-foreground: #a39e96;
+    --accent: #c8ff00;
+    --accent-foreground: #1a1a1a;
+    --destructive: #e54d2e;
+    --border: #3a3733;
+    --input: #3a3733;
+    --ring: #c8ff00;
+    --chart-1: #c8ff00;
+    --chart-2: #f5f0e8;
+    --chart-3: #a39e96;
+    --chart-4: #6b6560;
+    --chart-5: #3a3733;
+    --sidebar: #141210;
+    --sidebar-foreground: #f5f0e8;
+    --sidebar-primary: #c8ff00;
+    --sidebar-primary-foreground: #1a1a1a;
+    --sidebar-accent: #2a2723;
+    --sidebar-accent-foreground: #f5f0e8;
+    --sidebar-border: #3a3733;
+    --sidebar-ring: #c8ff00;
+  }
+}
+
+/* Keep explicit dark override for future toggle support */
 .dark {
   --background: #141210;
   --foreground: #f5f0e8;
