@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:3737"]
 
     class Config:
-        env_file = ".env"
+        env_file = ("../.env", ".env")
         extra = "ignore"
 
 
