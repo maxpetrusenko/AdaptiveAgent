@@ -1,4 +1,10 @@
-from app.benchmarks.compare import CaseResult, SystemSummary, _pairwise_delta, _render_leaderboard
+from app.benchmarks.compare import (
+    CaseResult,
+    SystemSummary,
+    _aggregate_system_runs,
+    _pairwise_delta,
+    _render_leaderboard,
+)
 
 
 def _summary(system: str, statuses: list[str]) -> SystemSummary:
@@ -46,8 +52,19 @@ def test_render_leaderboard_sorts_by_pass_rate_then_latency():
     faster.avg_latency_ms = 5
 
     text = _render_leaderboard(
-        [slower, faster],
-        {"faster": {"pass_rate_delta": 0.0, "wins": 0, "losses": 0, "ties": 2}},
+        [
+            _aggregate_system_runs("slower", [slower]),
+            _aggregate_system_runs("faster", [faster]),
+        ],
+        {
+            "faster": {
+                "pass_rate_delta_mean": 0.0,
+                "pass_rate_delta_std": 0.0,
+                "wins": 0,
+                "losses": 0,
+                "ties": 2,
+            }
+        },
     )
 
     assert "1. faster" in text

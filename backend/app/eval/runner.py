@@ -92,10 +92,13 @@ async def run_eval_suite(
                 )
 
             # Run hallucination check
+            case_tags = case.tags if isinstance(case.tags, list) else []
             halluc_result = await check_hallucination(
                 case.input,
                 actual_output,
                 tool_results=tool_results,
+                case_tags=case_tags,
+                deterministic_result=check_result,
             )
 
             status = "pass" if check_result["pass"] else "fail"
@@ -109,7 +112,6 @@ async def run_eval_suite(
                 status = "fail"
 
             # Consistency check for reasoning/math cases
-            case_tags = case.tags if isinstance(case.tags, list) else []
             needs_consistency = any(
                 tag in ("reasoning", "math") for tag in case_tags
             )

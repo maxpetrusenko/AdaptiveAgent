@@ -129,6 +129,38 @@ def check_grounded_by_tools(
     return None
 
 
+def check_grounded_deterministically(
+    deterministic_result: dict | None,
+    case_tags: list[str] | tuple[str, ...] | None,
+) -> dict | None:
+    """Skip hallucination judging when a deterministic success is enough evidence."""
+    if not deterministic_result or not deterministic_result.get("pass"):
+        return None
+
+    tags = set(case_tags or [])
+    reason = str(deterministic_result.get("reason", ""))
+
+    if "math" in tags and (
+        reason == "Exact match"
+        or reason.startswith("Numeric match:")
+        or reason.startswith("Contains expected:")
+    ):
+        return {
+            "has_hallucination": False,
+            "confidence": 1.0,
+            "details": "Deterministically verified math answer",
+        }
+
+    if "refusal" in tags and reason == "Correctly refused":
+        return {
+            "has_hallucination": False,
+            "confidence": 1.0,
+            "details": "Deterministically verified refusal",
+        }
+
+    return None
+
+
 async def check_pass_fail(
     input_text: str,
     expected_output: str,
@@ -169,8 +201,14 @@ async def check_hallucination(
     input_text: str,
     actual_output: str,
     tool_results: list[dict] | None = None,
+    case_tags: list[str] | tuple[str, ...] | None = None,
+    deterministic_result: dict | None = None,
 ) -> dict:
     """Check if the output contains hallucinated/unsupported claims."""
+    deterministic = check_grounded_deterministically(deterministic_result, case_tags)
+    if deterministic is not None:
+        return deterministic
+
     grounded = check_grounded_by_tools(actual_output, tool_results)
     if grounded is not None:
         return grounded
