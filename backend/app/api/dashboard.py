@@ -46,6 +46,7 @@ async def get_metrics(db: AsyncSession = Depends(get_db)):
 
     # Calculate hallucination rate from latest run
     hallucination_rate = None
+    results: list = []
     if latest_run:
         results_result = await db.execute(
             select(EvalResult).where(EvalResult.eval_run_id == latest_run.id)
@@ -87,6 +88,17 @@ async def get_metrics(db: AsyncSession = Depends(get_db)):
         if avg_latency:
             avg_cost = round(avg_latency / 1000 * 0.003, 4)  # rough cost estimate
 
+    # Compute consistency_score as clean rate: 1 - (hallucination_count / total)
+    consistency_score = None
+    if latest_run and results:
+        total_results = len(results)
+        if total_results > 0:
+            halluc_total = sum(
+                1 for r in results
+                if r.error and "hallucination" in (r.error or "").lower()
+            )
+            consistency_score = round(1.0 - (halluc_total / total_results), 4)
+
     return MetricsResponse(
         pass_rate=pass_rate,
         hallucination_rate=hallucination_rate,
@@ -94,6 +106,6 @@ async def get_metrics(db: AsyncSession = Depends(get_db)):
         total_eval_cases=total_cases,
         total_eval_runs=total_runs,
         total_adaptations=total_adaptations,
-        consistency_score=None,  # TODO: implement
+        consistency_score=consistency_score,
         recent_runs=recent_runs,
     )

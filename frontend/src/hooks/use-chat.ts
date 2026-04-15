@@ -103,42 +103,47 @@ export function useChat() {
         let accumulated = "";
 
         if (reader) {
+          let buffer = "";
           while (true) {
             const { done, value } = await reader.read();
             if (done) break;
 
-            const chunk = decoder.decode(value, { stream: true });
-            const lines = chunk.split("\n");
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            // Keep the last element as buffer (may be incomplete)
+            buffer = lines.pop() ?? "";
 
             for (const line of lines) {
-              if (line.startsWith("data: ")) {
-                const data = line.slice(6);
-                if (data === "[DONE]") continue;
-                try {
-                  const parsed = JSON.parse(data);
-                  if (parsed.type === "content") {
-                    accumulated += parsed.content;
-                    setStreamingContent(accumulated);
-                  } else if (parsed.type === "tool_call") {
-                    accumulated += `\n\n*Using tool: ${parsed.name}*\n`;
-                    setStreamingContent(accumulated);
-                  } else if (parsed.type === "tool_result") {
-                    const output =
-                      typeof parsed.output === "string"
-                        ? parsed.output.slice(0, 200)
-                        : JSON.stringify(parsed.output).slice(0, 200);
-                    accumulated += `\n*Result: ${output}*\n\n`;
-                    setStreamingContent(accumulated);
-                  } else if (parsed.type === "done") {
-                    setStreamingContent("");
-                    await loadMessages(sessionId!);
-                  } else if (parsed.type === "error") {
-                    accumulated += `\n\n**Error:** ${parsed.error}\n`;
-                    setStreamingContent(accumulated);
-                  }
-                } catch {
-                  // Ignore parse errors for incomplete chunks
-                }
+              if (!line.startsWith("data: ")) continue;
+              const data = line.slice(6).trim();
+              if (data === "[DONE]") continue;
+
+              let parsed;
+              try {
+                parsed = JSON.parse(data);
+              } catch {
+                continue;
+              }
+
+              if (parsed.type === "content") {
+                accumulated += parsed.content;
+                setStreamingContent(accumulated);
+              } else if (parsed.type === "tool_call") {
+                accumulated += `\n\n*Using tool: ${parsed.name}*\n`;
+                setStreamingContent(accumulated);
+              } else if (parsed.type === "tool_result") {
+                const output =
+                  typeof parsed.output === "string"
+                    ? parsed.output.slice(0, 200)
+                    : JSON.stringify(parsed.output).slice(0, 200);
+                accumulated += `\n*Result: ${output}*\n\n`;
+                setStreamingContent(accumulated);
+              } else if (parsed.type === "done") {
+                setStreamingContent("");
+                await loadMessages(sessionId!);
+              } else if (parsed.type === "error") {
+                accumulated += `\n\n**Error:** ${parsed.error}\n`;
+                setStreamingContent(accumulated);
               }
             }
           }

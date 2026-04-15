@@ -7,21 +7,21 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent.graph import run_agent
-from app.eval.checks import check_hallucination, check_pass_fail
+from app.eval.checks import (
+    check_consistency,
+    check_deterministic,
+    check_hallucination,
+    check_pass_fail,
+)
 from app.models import EvalCase, EvalResult, EvalRun, PromptVersion
 
 
 async def run_eval_suite(db: AsyncSession, eval_run_id: str | None = None) -> EvalRun:
     """Run all eval cases against the current agent and store results.
 
-    If eval_run_id is provided, uses that existing run. Otherwise creates a new one.
+    If eval_run_id is provided, uses that existing run and pins to its prompt version.
+    Otherwise creates a new run using the active prompt.
     """
-    # Get active prompt version
-    result = await db.execute(select(PromptVersion).where(PromptVersion.is_active == True))  # noqa: E712
-    active_prompt = result.scalar_one_or_none()
-    if not active_prompt:
-        raise ValueError("No active prompt version found")
-
     # Get all eval cases
     cases_result = await db.execute(select(EvalCase))
     cases = cases_result.scalars().all()
@@ -29,15 +29,29 @@ async def run_eval_suite(db: AsyncSession, eval_run_id: str | None = None) -> Ev
     if not cases:
         raise ValueError("No eval cases found")
 
-    # Get or create eval run
+    # Get or create eval run, pinning prompt version appropriately
     if eval_run_id:
         run_result = await db.execute(select(EvalRun).where(EvalRun.id == eval_run_id))
         eval_run = run_result.scalar_one_or_none()
         if not eval_run:
             raise ValueError(f"Eval run {eval_run_id} not found")
+        # Pin to the run's prompt version
+        prompt_result = await db.execute(
+            select(PromptVersion).where(PromptVersion.id == eval_run.prompt_version_id)
+        )
+        prompt = prompt_result.scalar_one_or_none()
+        if not prompt:
+            raise ValueError(f"Prompt version {eval_run.prompt_version_id} not found")
     else:
+        # New run - use active prompt
+        prompt_result = await db.execute(
+            select(PromptVersion).where(PromptVersion.is_active == True)  # noqa: E712
+        )
+        prompt = prompt_result.scalar_one_or_none()
+        if not prompt:
+            raise ValueError("No active prompt version found")
         eval_run = EvalRun(
-            prompt_version_id=active_prompt.id,
+            prompt_version_id=prompt.id,
             status="running",
             total=len(cases),
         )
@@ -52,17 +66,21 @@ async def run_eval_suite(db: AsyncSession, eval_run_id: str | None = None) -> Ev
         start_time = time.time()
 
         try:
-            # Run agent with the case input
+            # Run agent with the pinned prompt version
             agent_result = await run_agent(
                 messages=[{"role": "user", "content": case.input}],
-                system_prompt=active_prompt.content,
+                system_prompt=prompt.content,
             )
 
             actual_output = agent_result["content"]
             latency_ms = int((time.time() - start_time) * 1000)
 
-            # Run pass/fail check
-            check_result = await check_pass_fail(case.input, case.expected_output, actual_output)
+            # Try deterministic checks first, fall back to LLM judge
+            check_result = check_deterministic(case.expected_output, actual_output)
+            if check_result is None:
+                check_result = await check_pass_fail(
+                    case.input, case.expected_output, actual_output
+                )
 
             # Run hallucination check
             halluc_result = await check_hallucination(case.input, actual_output)
@@ -76,6 +94,31 @@ async def run_eval_suite(db: AsyncSession, eval_run_id: str | None = None) -> Ev
                 halluc_detail = f"Hallucination: {halluc_result['details']}"
                 error_msg = f"{error_msg} | {halluc_detail}" if error_msg else halluc_detail
                 status = "fail"
+
+            # Consistency check for reasoning/math cases
+            case_tags = case.tags if isinstance(case.tags, list) else []
+            needs_consistency = any(
+                tag in ("reasoning", "math") for tag in case_tags
+            )
+            if needs_consistency and status == "pass":
+                extra_outputs = []
+                for _ in range(2):  # 2 more runs (3 total)
+                    extra_result = await run_agent(
+                        messages=[{"role": "user", "content": case.input}],
+                        system_prompt=prompt.content,
+                    )
+                    extra_outputs.append(extra_result["content"])
+                consistency_result = await check_consistency(
+                    case.input, [actual_output, *extra_outputs]
+                )
+                if not consistency_result["consistent"]:
+                    status = "fail"
+                    consistency_detail = (
+                        f"Inconsistent across runs: {consistency_result['details']}"
+                    )
+                    error_msg = (
+                        f"{error_msg} | {consistency_detail}" if error_msg else consistency_detail
+                    )
 
             if status == "pass":
                 passed += 1

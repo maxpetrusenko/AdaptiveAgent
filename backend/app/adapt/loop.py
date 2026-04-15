@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.adapt.prompt_updater import create_prompt_version, generate_improved_prompt
 from app.eval.runner import run_eval_suite
-from app.models import AdaptationRun, PromptVersion
+from app.models import AdaptationRun, EvalCase, EvalResult, PromptVersion
 
 
 async def run_adaptation_loop(db: AsyncSession, adaptation_run_id: str) -> AdaptationRun:
@@ -81,15 +81,58 @@ async def run_adaptation_loop(db: AsyncSession, adaptation_run_id: str) -> Adapt
         after_eval = await run_eval_suite(db)
         after_pass_rate = after_eval.pass_rate or 0.0
 
-        # Step 6: Accept or reject
-        improved = after_pass_rate > before_pass_rate
+        # Step 6: Compute guardrail metrics
+        from app.adapt.strategies import should_accept
 
-        if improved:
-            # Accept: keep new prompt active
+        # Count hallucinations in both runs
+        before_results = await db.execute(
+            select(EvalResult).where(EvalResult.eval_run_id == before_eval.id)
+        )
+        after_results_q = await db.execute(
+            select(EvalResult).where(EvalResult.eval_run_id == after_eval.id)
+        )
+        before_results_list = before_results.scalars().all()
+        after_results_list = after_results_q.scalars().all()
+
+        before_halluc = sum(
+            1 for r in before_results_list
+            if r.error and "hallucination" in (r.error or "").lower()
+        )
+        after_halluc = sum(
+            1 for r in after_results_list
+            if r.error and "hallucination" in (r.error or "").lower()
+        )
+
+        # Count protected (manual seed) case results
+        protected_cases = await db.execute(
+            select(EvalCase.id).where(EvalCase.source == "manual")
+        )
+        protected_ids = {c for c in protected_cases.scalars().all()}
+        protected_total = len(protected_ids)
+
+        before_protected_pass = sum(
+            1 for r in before_results_list
+            if r.eval_case_id in protected_ids and r.status == "pass"
+        )
+        after_protected_pass = sum(
+            1 for r in after_results_list
+            if r.eval_case_id in protected_ids and r.status == "pass"
+        )
+
+        accepted, reason = should_accept(
+            before_pass_rate=before_pass_rate,
+            after_pass_rate=after_pass_rate,
+            before_halluc_count=before_halluc,
+            after_halluc_count=after_halluc,
+            before_protected_pass=before_protected_pass,
+            after_protected_pass=after_protected_pass,
+            protected_total=protected_total,
+        )
+
+        if accepted:
             adapt_run.accepted = True
             adapt_run.after_version_id = new_prompt.id
         else:
-            # Reject: revert to old prompt
             new_prompt.is_active = False
             current_prompt.is_active = True
             adapt_run.accepted = False
@@ -98,6 +141,12 @@ async def run_adaptation_loop(db: AsyncSession, adaptation_run_id: str) -> Adapt
         adapt_run.status = "completed"
         adapt_run.completed_at = datetime.now(timezone.utc)
         adapt_run.after_pass_rate = after_pass_rate
+
+        # Include the guardrail reason in the change_reason
+        new_prompt.change_reason = (
+            f"{new_prompt.change_reason or ''} | "
+            f"{'Accepted' if accepted else 'Rejected'}: {reason}"
+        )
 
         await db.commit()
         await db.refresh(adapt_run)

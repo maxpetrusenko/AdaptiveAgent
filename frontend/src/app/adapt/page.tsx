@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sparkles, Loader2 } from "lucide-react";
@@ -46,9 +46,11 @@ export default function AdaptPage() {
     }
   }, []);
 
-  useEffect(() => {
+  const initialized = useRef<boolean | null>(null);
+  if (initialized.current === null) {
+    initialized.current = true;
     loadRuns();
-  }, [loadRuns]);
+  }
 
   const handleSelect = useCallback(
     (id: string) => {

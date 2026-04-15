@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { CaseList } from "@/components/cases/case-list";
 import { CreateCaseForm } from "@/components/cases/create-case-form";
 import type { EvalCase } from "@/lib/types";
@@ -22,9 +22,11 @@ export default function CasesPage() {
     }
   }, []);
 
-  useEffect(() => {
+  const initialized = useRef<boolean | null>(null);
+  if (initialized.current === null) {
+    initialized.current = true;
     loadCases();
-  }, [loadCases]);
+  }
 
   const handleCreateCase = async (data: {
     name: string;

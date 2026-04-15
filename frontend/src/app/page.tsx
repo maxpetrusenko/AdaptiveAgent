@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   TrendingUp,
@@ -47,8 +47,13 @@ export default function DashboardPage() {
     }
   }, []);
 
-  useEffect(() => {
+  const initialized = useRef<boolean | null>(null);
+  if (initialized.current === null) {
+    initialized.current = true;
     loadMetrics();
+  }
+
+  useEffect(() => {
     const interval = setInterval(loadMetrics, 10000);
     return () => clearInterval(interval);
   }, [loadMetrics]);

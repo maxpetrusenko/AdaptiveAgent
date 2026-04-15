@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Play, Loader2 } from "lucide-react";
 import { EvalRunList } from "@/components/evals/eval-run-list";
@@ -40,9 +40,11 @@ export default function EvalsPage() {
     }
   }, []);
 
-  useEffect(() => {
+  const initialized = useRef<boolean | null>(null);
+  if (initialized.current === null) {
+    initialized.current = true;
     loadRuns();
-  }, [loadRuns]);
+  }
 
   const handleSelectRun = (id: string) => {
     setSelectedRunId(id);
