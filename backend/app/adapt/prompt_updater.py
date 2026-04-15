@@ -1,12 +1,96 @@
-"""Prompt version management and LLM-based prompt improvement."""
+"""Prompt version management and failure-driven prompt improvement."""
 
-from langchain_anthropic import ChatAnthropic
+from collections import Counter
+
 from langchain_core.messages import HumanMessage
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
+from app.llm import build_chat_model
 from app.models import EvalCase, EvalResult, PromptVersion
+
+TAG_GUIDANCE = {
+    "tool-use": (
+        "When a suitable tool exists for dynamic facts, time, or calculations, "
+        "use the tool before answering instead of guessing."
+    ),
+    "time": (
+        "For questions about the current date or time, call the current_time tool "
+        "and answer from its UTC output. Never guess the current time."
+    ),
+    "math": (
+        "For arithmetic or multi-step numeric work, use the calculator tool when "
+        "it is available and report the computed result clearly."
+    ),
+    "multi-step": (
+        "Break multi-step problems into explicit steps and keep intermediate "
+        "reasoning aligned with the final answer."
+    ),
+    "uncertainty": (
+        "For future or unknowable outcomes, state uncertainty plainly and avoid "
+        "fabricated predictions."
+    ),
+    "factual": (
+        "If you cannot verify a factual claim with available tools or reliable "
+        "knowledge, say so instead of inventing details."
+    ),
+    "refusal": (
+        "Refuse harmful or illegal requests briefly and do not provide actionable "
+        "instructions."
+    ),
+    "safety": (
+        "Prioritize safety constraints over helpfulness when a request would enable "
+        "harm, abuse, or illegal activity."
+    ),
+}
+
+
+def _build_failure_summary(failures: list[tuple[EvalResult, EvalCase]]) -> tuple[str, list[str]]:
+    """Summarize failed cases and derive concrete prompt updates."""
+    failure_analysis: list[str] = []
+    tag_counts: Counter[str] = Counter()
+    saw_hallucination = False
+
+    for eval_result, eval_case in failures:
+        tags = eval_case.tags if isinstance(eval_case.tags, list) else []
+        tag_counts.update(tags)
+        if eval_result.error and "hallucination" in eval_result.error.lower():
+            saw_hallucination = True
+
+        failure_analysis.append(
+            f"- Case: {eval_case.name}\n"
+            f"  Tags: {', '.join(tags) if tags else 'none'}\n"
+            f"  Input: {eval_case.input}\n"
+            f"  Expected: {eval_case.expected_output}\n"
+            f"  Actual: {eval_result.actual_output[:200]}\n"
+            f"  Error: {eval_result.error or 'Did not match expected'}"
+        )
+
+    guidance: list[str] = []
+    for tag, _count in tag_counts.most_common():
+        instruction = TAG_GUIDANCE.get(tag)
+        if instruction and instruction not in guidance:
+            guidance.append(instruction)
+
+    if saw_hallucination:
+        guidance.append(
+            "When evidence is missing, say that clearly and avoid unsupported claims."
+        )
+
+    return "\n".join(failure_analysis), guidance
+
+
+def _merge_required_updates(current_prompt: str, required_updates: list[str]) -> str:
+    """Append missing failure-driven updates to the prompt."""
+    missing_updates = [
+        update for update in required_updates if update.strip() and update not in current_prompt
+    ]
+    if not missing_updates:
+        return current_prompt.strip()
+
+    merged_lines = [current_prompt.strip(), "", "Failure-driven updates:"]
+    merged_lines.extend(f"- {update}" for update in missing_updates)
+    return "\n".join(merged_lines).strip()
 
 
 async def generate_improved_prompt(
@@ -28,43 +112,38 @@ async def generate_improved_prompt(
     if not failures:
         return current_prompt  # No failures, no changes needed
 
-    # Build failure analysis
-    failure_analysis = []
-    for eval_result, eval_case in failures:
-        failure_analysis.append(
-            f"- Input: {eval_case.input}\n"
-            f"  Expected: {eval_case.expected_output}\n"
-            f"  Actual: {eval_result.actual_output[:200]}\n"
-            f"  Error: {eval_result.error or 'Did not match expected'}"
-        )
+    failures_text, required_updates = _build_failure_summary(failures)
+    fallback_prompt = _merge_required_updates(current_prompt, required_updates)
 
-    failures_text = "\n".join(failure_analysis)
-
-    model = ChatAnthropic(
-        model=settings.default_model,
-        api_key=settings.anthropic_api_key,
-        max_tokens=2000,
-    )
+    model = build_chat_model(purpose="agent", streaming=False)
 
     improvement_prompt = (
-        "You are a prompt engineering expert. Analyze the following system prompt "
-        "and its failures, then output an improved version.\n\n"
+        "You are editing a system prompt after benchmark failures. Produce a better "
+        "prompt, but preserve the assistant identity and keep it concise.\n\n"
         f"CURRENT SYSTEM PROMPT:\n---\n{current_prompt}\n---\n\n"
         f"FAILURES ({len(failures)} cases failed):\n{failures_text}\n\n"
-        "INSTRUCTIONS:\n"
-        "1. Analyze why the current prompt led to these failures\n"
-        "2. Generate an improved system prompt that addresses the failures\n"
-        "3. Keep the core identity and capabilities intact\n"
-        "4. Add specific instructions to handle the failure cases better\n"
-        "5. Be concise - don't add unnecessary verbosity\n\n"
-        "Output ONLY the improved system prompt, nothing else. "
-        "No explanations, no markdown formatting, just the raw prompt text."
+        "REQUIRED UPDATES:\n"
+        + (
+            "\n".join(f"- {update}" for update in required_updates)
+            if required_updates
+            else "- Strengthen the prompt against the listed failures."
+        )
+        + "\n\n"
+        "Rules:\n"
+        "1. Keep all required updates, either verbatim or strengthened.\n"
+        "2. Prefer direct operational instructions over abstract guidance.\n"
+        "3. Do not add markdown fences or commentary.\n"
+        "4. Output only the final prompt text."
     )
 
     response = await model.ainvoke([HumanMessage(content=improvement_prompt)])
     content = response.content if isinstance(response.content, str) else str(response.content)
+    candidate_prompt = content.strip()
 
-    return content.strip()
+    if not candidate_prompt:
+        return fallback_prompt
+
+    return _merge_required_updates(candidate_prompt, required_updates)
 
 
 async def create_prompt_version(

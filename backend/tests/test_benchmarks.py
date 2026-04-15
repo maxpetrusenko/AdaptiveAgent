@@ -29,7 +29,12 @@ async def test_benchmark_report_smoke(monkeypatch):
             )
             await db.commit()
 
-    async def fake_run_eval_suite(db, eval_run_id=None):
+    async def fake_run_eval_suite(
+        db,
+        eval_run_id=None,
+        case_ids=None,
+        consistency_repeats=2,
+    ):
         prompt = (
             await db.execute(
                 select(PromptVersion).where(PromptVersion.is_active == True)  # noqa: E712
@@ -75,7 +80,12 @@ async def test_benchmark_report_smoke(monkeypatch):
         await db.refresh(run)
         return run
 
-    async def fake_run_adaptation_loop(db, run_id):
+    async def fake_run_adaptation_loop(
+        db,
+        run_id,
+        case_ids=None,
+        consistency_repeats=2,
+    ):
         from app.models import AdaptationRun
 
         prompt = (
@@ -134,3 +144,32 @@ async def test_benchmark_report_smoke(monkeypatch):
     assert report["post_adaptation"]["mean_pass_rate"] == 1.0
     assert report["adaptation"]["accepted"] is True
     assert report["delta"]["active_prompt_changed"] is True
+
+
+@pytest.mark.asyncio
+async def test_benchmark_stress_baseline_rewrites_seed_prompt():
+    from app.benchmarks.run import STRESS_BASELINES, _apply_stress_baseline
+    from app.database import async_session
+    from app.models import PromptVersion
+
+    assert STRESS_BASELINES["tool-agnostic"] is not None
+
+    async with async_session() as db:
+        db.add(
+            PromptVersion(
+                version=1,
+                content="Base prompt",
+                is_active=True,
+                change_reason="seed",
+            )
+        )
+        await db.commit()
+
+        await _apply_stress_baseline(db, "tool-agnostic")
+
+        active_prompt = (
+            await db.execute(select(PromptVersion).where(PromptVersion.is_active == True))  # noqa: E712
+        ).scalar_one()
+
+    assert "Never call any tools" in active_prompt.content
+    assert active_prompt.change_reason == "Stress baseline: tool-agnostic"

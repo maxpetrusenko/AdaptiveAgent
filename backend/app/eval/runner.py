@@ -16,14 +16,22 @@ from app.eval.checks import (
 from app.models import EvalCase, EvalResult, EvalRun, PromptVersion
 
 
-async def run_eval_suite(db: AsyncSession, eval_run_id: str | None = None) -> EvalRun:
+async def run_eval_suite(
+    db: AsyncSession,
+    eval_run_id: str | None = None,
+    case_ids: list[str] | None = None,
+    consistency_repeats: int = 2,
+) -> EvalRun:
     """Run all eval cases against the current agent and store results.
 
     If eval_run_id is provided, uses that existing run and pins to its prompt version.
     Otherwise creates a new run using the active prompt.
     """
     # Get all eval cases
-    cases_result = await db.execute(select(EvalCase))
+    cases_query = select(EvalCase)
+    if case_ids:
+        cases_query = cases_query.where(EvalCase.id.in_(case_ids))
+    cases_result = await db.execute(cases_query)
     cases = cases_result.scalars().all()
 
     if not cases:
@@ -73,6 +81,7 @@ async def run_eval_suite(db: AsyncSession, eval_run_id: str | None = None) -> Ev
             )
 
             actual_output = agent_result["content"]
+            tool_results = agent_result.get("tool_results")
             latency_ms = int((time.time() - start_time) * 1000)
 
             # Try deterministic checks first, fall back to LLM judge
@@ -83,7 +92,11 @@ async def run_eval_suite(db: AsyncSession, eval_run_id: str | None = None) -> Ev
                 )
 
             # Run hallucination check
-            halluc_result = await check_hallucination(case.input, actual_output)
+            halluc_result = await check_hallucination(
+                case.input,
+                actual_output,
+                tool_results=tool_results,
+            )
 
             status = "pass" if check_result["pass"] else "fail"
             error_msg = None
@@ -102,23 +115,26 @@ async def run_eval_suite(db: AsyncSession, eval_run_id: str | None = None) -> Ev
             )
             if needs_consistency and status == "pass":
                 extra_outputs = []
-                for _ in range(2):  # 2 more runs (3 total)
+                for _ in range(max(consistency_repeats, 0)):
                     extra_result = await run_agent(
                         messages=[{"role": "user", "content": case.input}],
                         system_prompt=prompt.content,
                     )
                     extra_outputs.append(extra_result["content"])
-                consistency_result = await check_consistency(
-                    case.input, [actual_output, *extra_outputs]
-                )
-                if not consistency_result["consistent"]:
-                    status = "fail"
-                    consistency_detail = (
-                        f"Inconsistent across runs: {consistency_result['details']}"
+                if extra_outputs:
+                    consistency_result = await check_consistency(
+                        case.input, [actual_output, *extra_outputs]
                     )
-                    error_msg = (
-                        f"{error_msg} | {consistency_detail}" if error_msg else consistency_detail
-                    )
+                    if not consistency_result["consistent"]:
+                        status = "fail"
+                        consistency_detail = (
+                            f"Inconsistent across runs: {consistency_result['details']}"
+                        )
+                        error_msg = (
+                            f"{error_msg} | {consistency_detail}"
+                            if error_msg
+                            else consistency_detail
+                        )
 
             if status == "pass":
                 passed += 1

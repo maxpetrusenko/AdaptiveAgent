@@ -93,7 +93,12 @@ async def test_run_adaptation_loop_accepts_improved_prompt(monkeypatch):
 
     call_count = {"value": 0}
 
-    async def fake_run_eval_suite(db, eval_run_id=None):
+    async def fake_run_eval_suite(
+        db,
+        eval_run_id=None,
+        case_ids=None,
+        consistency_repeats=2,
+    ):
         call_count["value"] += 1
         is_before = call_count["value"] == 1
         prompt = (
@@ -211,7 +216,12 @@ async def test_run_adaptation_loop_rejects_regression(monkeypatch):
 
     call_count = {"value": 0}
 
-    async def fake_run_eval_suite(db, eval_run_id=None):
+    async def fake_run_eval_suite(
+        db,
+        eval_run_id=None,
+        case_ids=None,
+        consistency_repeats=2,
+    ):
         call_count["value"] += 1
         is_before = call_count["value"] == 1
         prompt = (

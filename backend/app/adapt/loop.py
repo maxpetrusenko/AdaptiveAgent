@@ -18,7 +18,12 @@ from app.eval.runner import run_eval_suite
 from app.models import AdaptationRun, EvalCase, EvalResult, PromptVersion
 
 
-async def run_adaptation_loop(db: AsyncSession, adaptation_run_id: str) -> AdaptationRun:
+async def run_adaptation_loop(
+    db: AsyncSession,
+    adaptation_run_id: str,
+    case_ids: list[str] | None = None,
+    consistency_repeats: int = 2,
+) -> AdaptationRun:
     """Execute the full self-improving loop."""
 
     # Load the adaptation run
@@ -39,7 +44,11 @@ async def run_adaptation_loop(db: AsyncSession, adaptation_run_id: str) -> Adapt
             raise ValueError("No active prompt version found")
 
         # Step 2: Run eval suite with current prompt
-        before_eval = await run_eval_suite(db)
+        before_eval = await run_eval_suite(
+            db,
+            case_ids=case_ids,
+            consistency_repeats=consistency_repeats,
+        )
         before_pass_rate = before_eval.pass_rate or 0.0
 
         adapt_run.before_pass_rate = before_pass_rate
@@ -78,7 +87,11 @@ async def run_adaptation_loop(db: AsyncSession, adaptation_run_id: str) -> Adapt
         new_prompt.is_active = True
         await db.commit()
 
-        after_eval = await run_eval_suite(db)
+        after_eval = await run_eval_suite(
+            db,
+            case_ids=case_ids,
+            consistency_repeats=consistency_repeats,
+        )
         after_pass_rate = after_eval.pass_rate or 0.0
 
         # Step 6: Compute guardrail metrics

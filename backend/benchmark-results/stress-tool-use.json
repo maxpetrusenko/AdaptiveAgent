@@ -1,0 +1,68 @@
+{
+  "baseline_prompt_version": 1,
+  "final_prompt_version": 2,
+  "adaptation": {
+    "run_id": "dbcae725-d903-44e7-b838-327bdd69d90a",
+    "accepted": true,
+    "before_pass_rate": 0.5,
+    "after_pass_rate": 1.0,
+    "before_version_id": "920004ea-55b9-4d82-b45e-32f332afe625",
+    "after_version_id": "0cc1a8a9-46ca-4382-8f8d-352c95aea1b9"
+  },
+  "baseline": {
+    "runs": [
+      {
+        "run_id": "7a963d2f-4920-4e51-b27d-402e04769af7",
+        "prompt_version_id": "920004ea-55b9-4d82-b45e-32f332afe625",
+        "pass_rate": 0.5,
+        "passed": 1,
+        "failed": 1,
+        "hallucination_failures": 0,
+        "protected_failures": 1,
+        "tag_pass_rates": {
+          "benchmark": 0.5,
+          "math": 1.0,
+          "protected": 0.5,
+          "time": 0.0,
+          "tool-use": 0.5
+        }
+      }
+    ],
+    "mean_pass_rate": 0.5,
+    "std_pass_rate": 0.0
+  },
+  "post_adaptation": {
+    "runs": [
+      {
+        "run_id": "571597a5-ac8c-4fef-92b4-5fca4ec0d9b8",
+        "prompt_version_id": "0cc1a8a9-46ca-4382-8f8d-352c95aea1b9",
+        "pass_rate": 1.0,
+        "passed": 2,
+        "failed": 0,
+        "hallucination_failures": 0,
+        "protected_failures": 0,
+        "tag_pass_rates": {
+          "benchmark": 1.0,
+          "math": 1.0,
+          "protected": 1.0,
+          "time": 1.0,
+          "tool-use": 1.0
+        }
+      }
+    ],
+    "mean_pass_rate": 1.0,
+    "std_pass_rate": 0.0
+  },
+  "delta": {
+    "mean_pass_rate_delta": 0.5,
+    "active_prompt_changed": true
+  },
+  "config": {
+    "repeats": 1,
+    "case_tag": "tool-use",
+    "max_cases": null,
+    "consistency_repeats": 0,
+    "stress_baseline": "tool-agnostic",
+    "case_count": 2
+  }
+}

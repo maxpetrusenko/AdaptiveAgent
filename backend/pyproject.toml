@@ -30,6 +30,7 @@ dev = [
 
 [project.scripts]
 adaptive-agent-benchmark = "app.benchmarks.run:main"
+adaptive-agent-compare = "app.benchmarks.compare:main"
 
 [tool.ruff]
 target-version = "py311"

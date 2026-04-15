@@ -1,11 +1,10 @@
-from langchain_anthropic import ChatAnthropic
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langgraph.graph import END, StateGraph
 from langgraph.prebuilt import ToolNode
 
 from app.agent.state import AgentState
 from app.agent.tools import calculator, current_time
-from app.config import settings
+from app.llm import build_chat_model
 
 TOOLS = [calculator, current_time]
 
@@ -16,12 +15,7 @@ def create_agent(system_prompt: str | None = None):
 
     prompt = system_prompt or SYSTEM_PROMPT_V1
 
-    model = ChatAnthropic(
-        model=settings.default_model,
-        api_key=settings.anthropic_api_key,
-        max_tokens=4096,
-        streaming=True,
-    ).bind_tools(TOOLS)
+    model = build_chat_model(purpose="agent", streaming=True).bind_tools(TOOLS)
 
     tool_node = ToolNode(TOOLS)
 
@@ -73,6 +67,8 @@ async def run_agent(
     final_messages = result["messages"]
     assistant_content = ""
     tool_calls_data = []
+    tool_results_data = []
+    tool_names_by_id = {}
 
     for msg in final_messages:
         if isinstance(msg, AIMessage):
@@ -82,17 +78,30 @@ async def run_agent(
                 )
             if msg.tool_calls:
                 for tc in msg.tool_calls:
+                    tool_call_id = tc.get("id", "")
+                    tool_name = tc.get("name", "")
+                    if tool_call_id and tool_name:
+                        tool_names_by_id[tool_call_id] = tool_name
                     tool_calls_data.append(
                         {
-                            "id": tc.get("id", ""),
-                            "name": tc.get("name", ""),
+                            "id": tool_call_id,
+                            "name": tool_name,
                             "input": tc.get("args", {}),
                         }
                     )
+        elif isinstance(msg, ToolMessage):
+            tool_results_data.append(
+                {
+                    "id": msg.tool_call_id,
+                    "name": tool_names_by_id.get(msg.tool_call_id, "unknown"),
+                    "output": msg.content if isinstance(msg.content, str) else str(msg.content),
+                }
+            )
 
     return {
         "content": assistant_content,
         "tool_calls": tool_calls_data if tool_calls_data else None,
+        "tool_results": tool_results_data if tool_results_data else None,
     }
 
 

@@ -2,11 +2,11 @@
 
 import json
 import re
+from datetime import datetime, timezone
 
-from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage
 
-from app.config import settings
+from app.llm import build_chat_model
 
 
 def check_deterministic(
@@ -65,12 +65,68 @@ def _parse_json(content: str) -> dict | None:
     return None
 
 
-def _get_judge_model() -> ChatAnthropic:
-    return ChatAnthropic(
-        model="claude-haiku-4-5-20251001",
-        api_key=settings.anthropic_api_key,
-        max_tokens=200,
-    )
+def _get_judge_model():
+    return build_chat_model(purpose="judge", streaming=False)
+
+
+def _extract_datetime_signature(text: str) -> tuple[str, str] | None:
+    match = re.search(r"(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})", text)
+    if not match:
+        return None
+    return match.group(1), match.group(2)
+
+
+def check_grounded_by_tools(
+    actual_output: str,
+    tool_results: list[dict] | None,
+) -> dict | None:
+    """Return a non-hallucination judgment when tool evidence clearly supports output."""
+    if not tool_results:
+        return None
+
+    actual_nums = [float(num) for num in re.findall(r"-?\d+\.?\d*", actual_output)]
+    actual_datetime = _extract_datetime_signature(actual_output)
+
+    for tool_result in tool_results:
+        tool_name = str(tool_result.get("name", ""))
+        output = str(tool_result.get("output", ""))
+
+        if tool_name == "calculator":
+            tool_nums = [float(num) for num in re.findall(r"-?\d+\.?\d*", output)]
+            if tool_nums and actual_nums:
+                for actual_num in actual_nums:
+                    if any(abs(actual_num - tool_num) < 0.01 for tool_num in tool_nums):
+                        return {
+                            "has_hallucination": False,
+                            "confidence": 1.0,
+                            "details": "Supported by calculator tool output",
+                        }
+
+        if tool_name == "current_time":
+            tool_datetime = _extract_datetime_signature(output)
+            if tool_datetime and actual_datetime and tool_datetime == actual_datetime:
+                return {
+                    "has_hallucination": False,
+                    "confidence": 1.0,
+                    "details": "Supported by current_time tool output",
+                }
+
+            try:
+                parsed = datetime.fromisoformat(output.replace("Z", "+00:00"))
+                parsed = parsed.astimezone(timezone.utc)
+                if actual_datetime == (
+                    parsed.strftime("%Y-%m-%d"),
+                    parsed.strftime("%H:%M"),
+                ):
+                    return {
+                        "has_hallucination": False,
+                        "confidence": 1.0,
+                        "details": "Supported by current_time tool output",
+                    }
+            except ValueError:
+                continue
+
+    return None
 
 
 async def check_pass_fail(
@@ -112,15 +168,28 @@ async def check_pass_fail(
 async def check_hallucination(
     input_text: str,
     actual_output: str,
+    tool_results: list[dict] | None = None,
 ) -> dict:
     """Check if the output contains hallucinated/unsupported claims."""
+    grounded = check_grounded_by_tools(actual_output, tool_results)
+    if grounded is not None:
+        return grounded
+
     model = _get_judge_model()
+    tool_evidence = "None"
+    if tool_results:
+        tool_evidence = "\n".join(
+            f"- {tool.get('name', 'unknown')}: {tool.get('output', '')}"
+            for tool in tool_results
+        )
 
     judge_prompt = (
         "Analyze the following AI response for hallucinations "
         "(fabricated facts, unsupported claims, false information).\n\n"
         f"Input question: {input_text}\n"
         f"AI Response: {actual_output}\n\n"
+        f"Tool evidence available to the assistant:\n{tool_evidence}\n\n"
+        "Treat claims as supported when they are grounded in the tool evidence above.\n"
         "Respond with ONLY a JSON object: "
         '{"has_hallucination": true/false, "confidence": 0.0-1.0, "details": "explanation"}'
     )

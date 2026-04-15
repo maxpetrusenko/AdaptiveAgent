@@ -50,11 +50,34 @@ Open `http://localhost:3737`. The database and 10 seed eval cases are created au
 
 ## Benchmark It
 
-To verify the agent is actually adaptive, run repeated evals before and after one adaptation loop:
+Two benchmark modes:
+
+1. single-system adaptation benchmark
+2. comparative leaderboard against baselines
+
+Single-system:
 
 ```bash
 cd backend
 python -m app.benchmarks.run --repeats 3 --out benchmark-results/latest.json
+```
+
+Comparative leaderboard:
+
+```bash
+cd backend
+python -m app.benchmarks.compare --out benchmark-results/compare.json
+```
+
+If the seeded suite is already at 100% and you want to prove the loop can recover from a weak prompt, run the stress benchmark:
+
+```bash
+python -m app.benchmarks.run \
+  --stress-baseline tool-agnostic \
+  --case-tag tool-use \
+  --repeats 1 \
+  --consistency-repeats 0 \
+  --out benchmark-results/stress-tool-use.json
 ```
 
 The report includes:
@@ -63,6 +86,14 @@ The report includes:
 - post-adaptation mean/std pass rate
 - accepted/rejected adaptation decision
 - whether the active prompt version changed
+
+The comparative report includes:
+
+- `direct_llm` vs `weak_static_agent` vs `adaptive_agent` vs `seed_tool_agent`
+- held-out pass rates
+- average latency
+- hallucination failures
+- pairwise win/loss/tie deltas against `adaptive_agent`
 
 See [docs/runbooks/benchmarking.md](docs/runbooks/benchmarking.md) for interpretation.
 

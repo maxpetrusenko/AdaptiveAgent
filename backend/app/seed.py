@@ -15,8 +15,8 @@ PROTECTED_SEED_CASE_NAMES = {
 
 async def seed_prompt_v1(db: AsyncSession):
     """Create initial prompt version if none exists."""
-    result = await db.execute(select(PromptVersion))
-    if result.scalar_one_or_none() is None:
+    existing = (await db.execute(select(PromptVersion.id).limit(1))).scalar_one_or_none()
+    if existing is None:
         v1 = PromptVersion(
             version=1,
             content=SYSTEM_PROMPT_V1,
