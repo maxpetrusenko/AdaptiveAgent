@@ -536,6 +536,18 @@ def render_report_file(json_path: Path) -> Path:
     return html_path
 
 
+def _has_runner_errors(report: dict[str, Any]) -> bool:
+    summary = report.get("trajectory", {}).get("summary", {})
+    if summary.get("errors"):
+        return True
+
+    for system in report.get("systems", []):
+        for run in system.get("runs", []):
+            if run.get("metadata", {}).get("runner_error"):
+                return True
+    return False
+
+
 def _normalize_report(path: Path, report: dict[str, Any]) -> dict[str, Any]:
     if "baseline" in report and "post_adaptation" in report:
         start = float(report.get("baseline", {}).get("mean_pass_rate", 0.0))
@@ -562,6 +574,21 @@ def _normalize_report(path: Path, report: dict[str, Any]) -> dict[str, Any]:
         }
 
     if "leaderboard" in report or ("systems" in report and "pairwise" in report):
+        if _has_runner_errors(report):
+            return {
+                "name": path.stem,
+                "html": path.with_suffix(".html").name,
+                "json": path.name,
+                "kind": "raw",
+                "start": 0.0,
+                "end": 0.0,
+                "delta": 0.0,
+                "accepted": None,
+                "changed": None,
+                "cases": int(report.get("config", {}).get("eval_case_count", 0) or 0),
+                "story": "Benchmark artifact contains runner errors and should not drive the conclusion.",
+            }
+
         systems = report.get("systems", [])
         adaptive = next((item for item in systems if item.get("system") == "adaptive_agent"), {})
         trajectory = report.get("trajectory", {}).get("summary", {})

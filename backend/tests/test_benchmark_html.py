@@ -144,3 +144,32 @@ def test_normalize_report_for_compare_shape(tmp_path: Path):
     assert normalized["start"] == 0.5
     assert normalized["end"] == 1.0
     assert normalized["delta"] == 0.5
+
+
+def test_normalize_report_demotes_compare_artifact_with_runner_errors(tmp_path: Path):
+    path = tmp_path / "compare-smoke-fixed.json"
+    normalized = _normalize_report(
+        path,
+        {
+            "systems": [
+                {
+                    "system": "adaptive_agent",
+                    "pass_rate_mean": 0.0,
+                    "runs": [{"metadata": {"runner_error": "provider unavailable"}}],
+                }
+            ],
+            "pairwise": {},
+            "trajectory": {
+                "summary": {
+                    "initial": {},
+                    "cycles": [],
+                    "errors": ["provider unavailable"],
+                }
+            },
+            "config": {"eval_case_count": 8},
+        },
+    )
+
+    assert normalized["kind"] == "raw"
+    assert normalized["cases"] == 8
+    assert "runner errors" in normalized["story"]

@@ -71,7 +71,7 @@ Do not blindly port:
 
 ## Tech Stack
 
-- Frontend: Next.js 15 App Router, TypeScript, Tailwind CSS, shadcn/ui, Recharts
+- Frontend: Next.js 16 App Router, TypeScript, Tailwind CSS, shadcn/ui, Recharts
 - Backend API: Python 3.11, FastAPI, Pydantic, SQLAlchemy, SQLite
 - Agent runtime: LangGraph
 - Frontend tests: Vitest

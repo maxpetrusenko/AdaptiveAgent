@@ -171,7 +171,7 @@ Every prompt version is stored with full history and rollback capability.
 
 ```
 frontend/                       backend/
-├── Next.js 15 (App Router)     ├── FastAPI + SQLAlchemy + SQLite
+├── Next.js 16 (App Router)     ├── FastAPI + SQLAlchemy + SQLite
 ├── shadcn/ui + Tailwind        ├── LangGraph agent with tools
 ├── Recharts for metrics        ├── LLM-as-judge evaluation
 ├── SSE streaming               ├── Prompt versioning + rollback
