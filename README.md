@@ -97,6 +97,9 @@ The comparative report includes:
 
 See [docs/runbooks/benchmarking.md](docs/runbooks/benchmarking.md) for interpretation.
 
+### Comparative Benchmark — 5 systems, live on Gemma 4
+![Benchmark Leaderboard](assets/benchmark-leaderboard.png)
+
 ---
 
 ## Screenshots
