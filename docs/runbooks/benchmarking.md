@@ -130,6 +130,24 @@ That mode starts from a deliberately weak active prompt inside the benchmark DB 
 
 ## Read the result
 
+Start here:
+
+- `backend/benchmark-results/index.html`
+
+That page is the human-first benchmark storyboard:
+
+- short answer first
+- one-line summary across runs
+- strongest live proof first
+- tabs for raw per-run reports only after the summary
+
+Use the standalone HTML pages when you want the raw charts for one run:
+
+- `compare-smoke-live.html`
+- `stress-live.html`
+- `fast.html`
+- `full.html`
+
 Good result:
 
 - `adaptation.accepted = true`

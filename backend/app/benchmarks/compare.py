@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
@@ -98,8 +99,8 @@ def _build_running_report(
     return {
         "status": "running",
         "suite": {
-            "train_cases": [case.__dict__ for case in train_cases_subset],
-            "eval_cases": [case.__dict__ for case in eval_cases_subset],
+            "train_cases": [asdict(case) for case in train_cases_subset],
+            "eval_cases": [asdict(case) for case in eval_cases_subset],
         },
         "config": {
             "repeats": repeats,
@@ -117,16 +118,56 @@ def _build_running_report(
     }
 
 
+def _error_summary(
+    *,
+    system: str,
+    eval_cases_subset: list[Any],
+    error: Exception,
+) -> SystemSummary:
+    results = [
+        CaseResult(
+            case_name=case.name,
+            status="error",
+            score=0.0,
+            error=str(error),
+            actual_output="",
+            latency_ms=0,
+            usage=None,
+        )
+        for case in eval_cases_subset
+    ]
+    return SystemSummary(
+        system=system,
+        pass_rate=0.0,
+        passed=0,
+        failed=len(eval_cases_subset),
+        avg_latency_ms=0.0,
+        hallucination_failures=0,
+        tag_pass_rates={},
+        results=results,
+        metadata={"runner_error": str(error)},
+    )
+
+
 def _render_trajectory(summary: dict[str, Any]) -> str:
+    initial = summary.get("initial", {})
+    if "pass_rate" not in initial:
+        lines = ["Trajectory:"]
+        lines.append("Trajectory unavailable for adaptive agent.")
+        for error in summary.get("errors", []):
+            if error:
+                lines.append(f"- error: {error}")
+        return "\n".join(lines)
+
     lines = ["Trajectory:"]
-    initial_usage = summary["initial"].get("usage_totals", {})
+    initial_usage = initial.get("usage_totals", {})
     initial_token_text = ""
     if "total_tokens" in initial_usage:
         initial_token_text = f", tokens={initial_usage['total_tokens']['mean']:.0f}"
     lines.append(
-        f"Initial eval pass_rate={summary['initial']['pass_rate']:.1%} "
-        f"[{summary['initial']['pass_rate_ci_95'][0]:.1%}, "
-        f"{summary['initial']['pass_rate_ci_95'][1]:.1%}]"
+        f"Initial eval pass_rate={initial['pass_rate']:.1%} "
+        f"[{initial['pass_rate_ci_95'][0]:.1%}, "
+        f"{initial['pass_rate_ci_95'][1]:.1%}]"
         f"{initial_token_text}"
     )
     for cycle in summary["cycles"]:
@@ -187,72 +228,149 @@ async def run_compare_benchmark(
 
     for repeat_idx in range(1, repeats + 1):
         emit_progress(f"[repeat {repeat_idx}/{repeats}] direct_llm: start")
-        system_runs["direct_llm"].append(
-            await run_direct_llm_benchmark(
+        direct_ok = True
+        try:
+            direct_summary = await run_direct_llm_benchmark(
                 eval_cases_subset=eval_cases_subset,
                 system_prompt=DIRECT_LLM_PROMPT,
             )
-        )
+        except Exception as exc:
+            direct_ok = False
+            direct_summary = _error_summary(
+                system="direct_llm",
+                eval_cases_subset=eval_cases_subset,
+                error=exc,
+            )
+            emit_progress(
+                f"[repeat {repeat_idx}/{repeats}] direct_llm: failed ({exc})",
+                system="direct_llm",
+                repeat=repeat_idx,
+                error=str(exc),
+            )
+        system_runs["direct_llm"].append(direct_summary)
         completed_steps += 1
+        direct_status = "done" if direct_ok else "error recorded"
         emit_progress(
-            f"[repeat {repeat_idx}/{repeats}] direct_llm: done",
+            f"[repeat {repeat_idx}/{repeats}] direct_llm: {direct_status}",
             system="direct_llm",
             repeat=repeat_idx,
         )
         emit_progress(f"[repeat {repeat_idx}/{repeats}] weak_static_agent: start")
-        system_runs["weak_static_agent"].append(
-            await run_tool_agent_benchmark(
+        weak_ok = True
+        try:
+            weak_summary = await run_tool_agent_benchmark(
                 system_name="weak_static_agent",
                 prompt_text=WEAK_TOOL_PROMPT,
                 eval_cases_subset=eval_cases_subset,
             )
-        )
+        except Exception as exc:
+            weak_ok = False
+            weak_summary = _error_summary(
+                system="weak_static_agent",
+                eval_cases_subset=eval_cases_subset,
+                error=exc,
+            )
+            emit_progress(
+                f"[repeat {repeat_idx}/{repeats}] weak_static_agent: failed ({exc})",
+                system="weak_static_agent",
+                repeat=repeat_idx,
+                error=str(exc),
+            )
+        system_runs["weak_static_agent"].append(weak_summary)
         completed_steps += 1
+        weak_status = "done" if weak_ok else "error recorded"
         emit_progress(
-            f"[repeat {repeat_idx}/{repeats}] weak_static_agent: done",
+            f"[repeat {repeat_idx}/{repeats}] weak_static_agent: {weak_status}",
             system="weak_static_agent",
             repeat=repeat_idx,
         )
         emit_progress(f"[repeat {repeat_idx}/{repeats}] adaptive_agent: start")
-        adaptive_summary, trajectory = await run_adaptive_agent_benchmark(
-            weak_prompt=WEAK_TOOL_PROMPT,
-            adaptation_cycles=adaptation_cycles,
-            consistency_repeats=consistency_repeats,
-            eval_cases_subset=eval_cases_subset,
-            train_cases_subset=train_cases_subset,
-        )
+        adaptive_ok = True
+        try:
+            adaptive_summary, trajectory = await run_adaptive_agent_benchmark(
+                weak_prompt=WEAK_TOOL_PROMPT,
+                adaptation_cycles=adaptation_cycles,
+                consistency_repeats=consistency_repeats,
+                eval_cases_subset=eval_cases_subset,
+                train_cases_subset=train_cases_subset,
+            )
+        except Exception as exc:
+            adaptive_ok = False
+            adaptive_summary = _error_summary(
+                system="adaptive_agent",
+                eval_cases_subset=eval_cases_subset,
+                error=exc,
+            )
+            trajectory = {"initial": {}, "cycles": [], "error": str(exc)}
+            emit_progress(
+                f"[repeat {repeat_idx}/{repeats}] adaptive_agent: failed ({exc})",
+                system="adaptive_agent",
+                repeat=repeat_idx,
+                error=str(exc),
+            )
         system_runs["adaptive_agent"].append(adaptive_summary)
         adaptive_trajectories.append(trajectory)
         completed_steps += 1
+        adaptive_status = "done" if adaptive_ok else "error recorded"
         emit_progress(
-            f"[repeat {repeat_idx}/{repeats}] adaptive_agent: done",
+            f"[repeat {repeat_idx}/{repeats}] adaptive_agent: {adaptive_status}",
             system="adaptive_agent",
             repeat=repeat_idx,
         )
         emit_progress(f"[repeat {repeat_idx}/{repeats}] seed_tool_agent: start")
-        system_runs["seed_tool_agent"].append(
-            await run_tool_agent_benchmark(
+        seed_ok = True
+        try:
+            seed_summary = await run_tool_agent_benchmark(
                 system_name="seed_tool_agent",
                 prompt_text=SYSTEM_PROMPT_V1,
                 eval_cases_subset=eval_cases_subset,
             )
-        )
+        except Exception as exc:
+            seed_ok = False
+            seed_summary = _error_summary(
+                system="seed_tool_agent",
+                eval_cases_subset=eval_cases_subset,
+                error=exc,
+            )
+            emit_progress(
+                f"[repeat {repeat_idx}/{repeats}] seed_tool_agent: failed ({exc})",
+                system="seed_tool_agent",
+                repeat=repeat_idx,
+                error=str(exc),
+            )
+        system_runs["seed_tool_agent"].append(seed_summary)
         completed_steps += 1
+        seed_status = "done" if seed_ok else "error recorded"
         emit_progress(
-            f"[repeat {repeat_idx}/{repeats}] seed_tool_agent: done",
+            f"[repeat {repeat_idx}/{repeats}] seed_tool_agent: {seed_status}",
             system="seed_tool_agent",
             repeat=repeat_idx,
         )
         emit_progress(f"[repeat {repeat_idx}/{repeats}] sdk_tool_agent: start")
-        system_runs["sdk_tool_agent"].append(
-            await run_sdk_tool_baseline(
+        sdk_ok = True
+        try:
+            sdk_summary = await run_sdk_tool_baseline(
                 prompt_text=SYSTEM_PROMPT_V1,
                 eval_cases_subset=eval_cases_subset,
             )
-        )
+        except Exception as exc:
+            sdk_ok = False
+            sdk_summary = _error_summary(
+                system="sdk_tool_agent",
+                eval_cases_subset=eval_cases_subset,
+                error=exc,
+            )
+            emit_progress(
+                f"[repeat {repeat_idx}/{repeats}] sdk_tool_agent: failed ({exc})",
+                system="sdk_tool_agent",
+                repeat=repeat_idx,
+                error=str(exc),
+            )
+        system_runs["sdk_tool_agent"].append(sdk_summary)
         completed_steps += 1
+        sdk_status = "done" if sdk_ok else "error recorded"
         emit_progress(
-            f"[repeat {repeat_idx}/{repeats}] sdk_tool_agent: done",
+            f"[repeat {repeat_idx}/{repeats}] sdk_tool_agent: {sdk_status}",
             system="sdk_tool_agent",
             repeat=repeat_idx,
         )
@@ -301,8 +419,8 @@ async def run_compare_benchmark(
     report = {
         "status": "completed",
         "suite": {
-            "train_cases": [case.__dict__ for case in train_cases_subset],
-            "eval_cases": [case.__dict__ for case in eval_cases_subset],
+            "train_cases": [asdict(case) for case in train_cases_subset],
+            "eval_cases": [asdict(case) for case in eval_cases_subset],
         },
         "config": {
             "repeats": repeats,
@@ -414,17 +532,23 @@ async def _async_main() -> int:
         running_report["progress"]["completed_steps"] = progress_steps[-20:]
         _write_json(args.out, running_report)
 
-    report = await run_compare_benchmark(
-        repeats=args.repeats,
-        adaptation_cycles=args.adaptation_cycles,
-        bootstrap_samples=args.bootstrap_samples,
-        consistency_repeats=args.consistency_repeats,
-        max_train_cases=args.max_train_cases,
-        max_eval_cases=args.max_eval_cases,
-        include_judge_calibration=not args.skip_judge_calibration,
-        include_harness_checks=not args.skip_harness_checks,
-        progress_cb=progress_cb,
-    )
+    try:
+        report = await run_compare_benchmark(
+            repeats=args.repeats,
+            adaptation_cycles=args.adaptation_cycles,
+            bootstrap_samples=args.bootstrap_samples,
+            consistency_repeats=args.consistency_repeats,
+            max_train_cases=args.max_train_cases,
+            max_eval_cases=args.max_eval_cases,
+            include_judge_calibration=not args.skip_judge_calibration,
+            include_harness_checks=not args.skip_harness_checks,
+            progress_cb=progress_cb,
+        )
+    except BaseException as exc:
+        running_report["status"] = "failed"
+        running_report["error"] = str(exc)
+        _write_json(args.out, running_report)
+        raise
 
     _write_json(args.out, report)
     html_out = render_report_file(args.out)

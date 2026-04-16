@@ -102,10 +102,20 @@ def aggregate_trajectory_runs(
     *,
     bootstrap_samples: int,
 ) -> dict[str, Any]:
-    if not runs:
-        return {"initial": {}, "cycles": [], "runs": []}
+    valid_runs = [
+        run
+        for run in runs
+        if run.get("initial", {}).get("eval", {}).get("pass_rate") is not None
+    ]
+    if not valid_runs:
+        return {
+            "initial": {},
+            "cycles": [],
+            "runs": runs,
+            "errors": [run.get("error") for run in runs if run.get("error")],
+        }
 
-    initial_snapshots = [run["initial"] for run in runs]
+    initial_snapshots = [run["initial"] for run in valid_runs]
     initial_pass_rates = [float(snapshot["eval"]["pass_rate"]) for snapshot in initial_snapshots]
     initial_usage_keys = sorted(
         {
@@ -135,10 +145,10 @@ def aggregate_trajectory_runs(
         },
     }
 
-    cycle_count = max(len(run["cycles"]) for run in runs)
+    cycle_count = max(len(run["cycles"]) for run in valid_runs)
     cycles: list[dict[str, Any]] = []
     for index in range(cycle_count):
-        snapshots = [run["cycles"][index] for run in runs if len(run["cycles"]) > index]
+        snapshots = [run["cycles"][index] for run in valid_runs if len(run["cycles"]) > index]
         cycle_usage_keys = sorted(
             {
                 key
@@ -221,6 +231,7 @@ def aggregate_trajectory_runs(
         "initial": initial_summary,
         "cycles": cycles,
         "runs": runs,
+        "errors": [run.get("error") for run in runs if run.get("error")],
     }
 
 

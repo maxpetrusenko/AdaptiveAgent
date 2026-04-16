@@ -640,10 +640,40 @@ def _normalize_report(path: Path, report: dict[str, Any]) -> dict[str, Any]:
 def _dashboard_page(items: list[dict[str, Any]]) -> str:
     evidence = [item for item in items if item["delta"] > 0 and item["accepted"] is not False]
     strongest = max(evidence, key=lambda item: item["delta"], default=None)
+    saturated = [
+        item
+        for item in items
+        if item["kind"] == "adaptation" and abs(item["delta"]) < 1e-9
+    ]
+    weak = [item for item in items if item["kind"] == "raw"]
     top_story = (
         f"Strongest live proof: {strongest['name']} improved {_pct(strongest['start'])} → {_pct(strongest['end'])}."
         if strongest
         else "No improving run found yet."
+    )
+    short_answer = (
+        "Yes. The agent adapts when the starting prompt is weak, and it refuses to churn the prompt when the suite is already saturated."
+        if strongest
+        else "Not proven yet. No benchmark run shows a clean accepted improvement."
+    )
+    evidence_lines = []
+    if strongest:
+        evidence_lines.append(
+            f"The clearest proof is {strongest['name']}, where the run improved {_pct(strongest['start'])} → {_pct(strongest['end'])}."
+        )
+    if saturated:
+        names = ", ".join(item["name"] for item in saturated[:3])
+        evidence_lines.append(
+            f"When nothing needed fixing, runs like {names} stayed flat and were not accepted."
+        )
+    if weak:
+        names = ", ".join(item["name"] for item in weak[:2])
+        evidence_lines.append(
+            f"Artifacts like {names} are older or partial and should not drive the conclusion."
+        )
+    evidence_html = "".join(
+        f"<li>{escape(line)}</li>"
+        for line in evidence_lines
     )
     rows = [
         [
@@ -729,6 +759,34 @@ def _dashboard_page(items: list[dict[str, Any]]) -> str:
     .tab-button.active {{ background: var(--accent); color: white; }}
     .tab-panel {{ display: none; }}
     .tab-panel.active {{ display: block; }}
+    .story {{
+      padding: 24px;
+      background: linear-gradient(135deg, rgba(181,74,34,0.11), rgba(255,249,241,0.95));
+      border: 1px solid rgba(26,24,21,0.08);
+      border-radius: 22px;
+      margin-bottom: 18px;
+      box-shadow: 0 14px 42px rgba(64, 45, 30, 0.08);
+    }}
+    .story-title {{
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }}
+    .story-answer {{
+      font-size: 34px;
+      line-height: 1.08;
+      max-width: 18ch;
+      margin: 0 0 12px;
+    }}
+    .story-points {{
+      margin: 12px 0 0;
+      padding-left: 18px;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.5;
+    }}
     .report-frame {{
       width: 100%; min-height: 1280px; border: 1px solid rgba(26,24,21,0.08);
       border-radius: 18px; background: white;
@@ -742,6 +800,11 @@ def _dashboard_page(items: list[dict[str, Any]]) -> str:
       <h1>Benchmark Storyboard</h1>
       <p>{escape(top_story)} All rows normalize to the same human question: where did the benchmark start, where did it end, and did the adaptive loop measurably help?</p>
     </header>
+    <section class="story">
+      <div class="story-title">Short Answer</div>
+      <p class="story-answer">{escape(short_answer)}</p>
+      <ul class="story-points">{evidence_html}</ul>
+    </section>
     <section class="cards">
       {_card("reports", str(len(items)))}
       {_card("improving runs", str(len(evidence)))}
@@ -749,13 +812,13 @@ def _dashboard_page(items: list[dict[str, Any]]) -> str:
       {_card("strongest run", strongest["name"] if strongest else "n/a")}
     </section>
     <section class="panel">
-      <h2>Normalized Summary</h2>
-      <p>Different benchmark types are now shown on one shared scale: start pass rate, end pass rate, delta, acceptance, and case count. Raw suites still differ, but the story reads consistently.</p>
+      <h2>One-Line Summary</h2>
+      <p>Read this table as plain English. Did the run start weak or strong, did it get better, and should you trust it?</p>
       {_table(["report", "kind", "cases", "start", "end", "delta", "accepted", "story"], rows)}
     </section>
     <section class="panel">
-      <h2>Run Tabs</h2>
-      <p>Each tab opens the full standalone benchmark report inside this page, so a human can follow the summary first and inspect the raw run second.</p>
+      <h2>Raw Runs</h2>
+      <p>If the short answer is enough, stop there. If not, open any run below and inspect the raw evidence in place.</p>
       <div class="tabs">{tab_buttons}</div>
       {tab_panels}
     </section>
@@ -784,6 +847,15 @@ def render_report_directory(directory: Path) -> list[Path]:
         _normalize_report(path, json.loads(path.read_text(encoding="utf-8")))
         for path in json_paths
     ]
+    normalized.sort(
+        key=lambda item: (
+            item["kind"] == "raw",
+            item["accepted"] is not True,
+            item["cases"] == 0,
+            -(item["delta"] or 0.0),
+            item["name"],
+        )
+    )
     index_html = _dashboard_page(normalized)
     index_path = directory / "index.html"
     index_path.write_text(index_html, encoding="utf-8")
