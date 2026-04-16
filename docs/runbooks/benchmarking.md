@@ -41,12 +41,12 @@ Practical takeaway:
 
 `compare.py` now adds:
 
-- 30+ held-out eval cases across tool use, reasoning, factual recall, safety, uncertainty, and multi-turn behavior
+- 40+ held-out eval cases across tool use, reasoning, factual recall, safety, uncertainty, privacy, retrieval, prompt-injection, and multi-turn behavior
 - one external-style baseline: `sdk_tool_agent`, a provider-SDK manual tool loop outside the repo's LangGraph agent
 - repeated-run means, std, and bootstrap 95 percent confidence intervals
 - sequential multi-cycle adaptation trajectories
 - explicit gain, stability, and alignment-convergence fields
-- judge calibration on a labeled mini-set
+- judge calibration on a 56-case labeled set with exact duplicate checks in tests
 - adversarial harness checks for null-agent and judge-injection failures
 - exact sign tests on adaptive-vs-baseline win/loss counts
 - sibling HTML report with charts and a benchmark-results index page

@@ -60,9 +60,9 @@ def test_render_compare_report_contains_graph_sections():
             },
             "config": {"train_case_count": 3, "eval_case_count": 4},
             "judge_calibration": {
-                "case_count": 21,
-                "pass_fail": {"accuracy": 1.0, "precision": 1.0, "recall": 1.0, "support": 21},
-                "hallucination": {"accuracy": 1.0, "precision": 1.0, "recall": 1.0, "support": 21},
+                "case_count": 56,
+                "pass_fail": {"accuracy": 1.0, "precision": 1.0, "recall": 1.0, "support": 56},
+                "hallucination": {"accuracy": 1.0, "precision": 1.0, "recall": 1.0, "support": 56},
             },
             "hardening": {
                 "hardening_checks": {
@@ -77,6 +77,29 @@ def test_render_compare_report_contains_graph_sections():
     assert "Leaderboard pass rate" in html
     assert "Adaptive trajectory" in html
     assert "judge calibration" in html.lower()
+
+
+def test_render_compare_report_supports_legacy_harness_checks_alias():
+    html = render_report(
+        "compare-legacy",
+        {
+            "leaderboard": [{"system": "adaptive_agent", "pass_rate_mean": 1.0}],
+            "systems": [{"system": "adaptive_agent", "pass_rate_mean": 1.0}],
+            "pairwise": {},
+            "trajectory": {"summary": {"initial": {"pass_rate": 1.0}, "cycles": []}},
+            "config": {"train_case_count": 1, "eval_case_count": 1},
+            "harness_checks": {
+                "hardening_checks": {
+                    "null_agent": {"observed_pass_rate": 0.0, "sound": True},
+                    "judge_bias_agent": {"observed_pass_rate": 0.0, "sound": True},
+                    "evaluator_isolation": {"agent_and_evaluator_share_process": True},
+                }
+            },
+        },
+    )
+
+    assert "null_agent" in html
+    assert "evaluator_isolation" in html
 
 
 def test_render_report_directory_writes_html_and_index(tmp_path: Path):

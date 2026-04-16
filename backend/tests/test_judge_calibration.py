@@ -6,9 +6,22 @@ from app.benchmarks.judge_calibration import calibration_cases, run_judge_calibr
 
 def test_calibration_cases_cover_twenty_static_labeled_examples():
     cases = calibration_cases()
+    case_bodies = {
+        (
+            case.input_text,
+            case.expected_output,
+            case.actual_output,
+            case.expected_pass,
+            case.expected_hallucination,
+        )
+        for case in cases
+    }
 
-    assert len(cases) >= 50
+    assert len(cases) == 56
+    assert len(case_bodies) == len(cases)
     assert any("math" in case.tags for case in cases)
+    assert any("retrieval" in case.tags for case in cases)
+    assert any("privacy" in case.tags for case in cases)
     assert any(case.expected_pass for case in cases)
     assert any(not case.expected_pass for case in cases)
     assert any(case.expected_hallucination for case in cases)

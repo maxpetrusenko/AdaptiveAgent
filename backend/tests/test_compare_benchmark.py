@@ -156,7 +156,7 @@ async def test_run_compare_benchmark_includes_sdk_hardening_and_calibration(monk
         }
 
     async def fake_judge_calibration():
-        return {"case_count": 21}
+        return {"case_count": 56}
 
     monkeypatch.setattr(compare, "train_cases", lambda *args, **kwargs: [])
     monkeypatch.setattr(compare, "eval_cases", lambda *args, **kwargs: [])
@@ -172,5 +172,16 @@ async def test_run_compare_benchmark_includes_sdk_hardening_and_calibration(monk
     systems = {system["system"] for system in report["systems"]}
     assert "sdk_tool_agent" in systems
     assert report["hardening"]["hardening_checks"]["null_agent"]["sound"] is True
-    assert report["judge_calibration"]["case_count"] == 21
+    assert "harness_checks" not in report
+    assert report["judge_calibration"]["case_count"] == 56
     assert "evaluator_isolation" in report["hardening"]["hardening_checks"]
+
+
+def test_compare_eval_suite_has_expanded_diverse_coverage():
+    from app.benchmarks.compare_suite import eval_cases
+
+    cases = eval_cases()
+    tags = {tag for case in cases for tag in case.tags}
+
+    assert len(cases) >= 42
+    assert {"retrieval", "privacy", "prompt-injection"}.issubset(tags)

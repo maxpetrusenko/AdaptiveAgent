@@ -196,7 +196,8 @@ def _render_compare_report(name: str, report: dict[str, Any]) -> str:
     ]
 
     judge = report.get("judge_calibration") or {}
-    hardening = (report.get("hardening") or {}).get("hardening_checks", {})
+    hardening_report = report.get("hardening") or report.get("harness_checks") or {}
+    hardening = hardening_report.get("hardening_checks", {})
     extra = []
     if judge:
         extra.append(
