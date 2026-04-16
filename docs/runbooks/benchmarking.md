@@ -4,6 +4,18 @@
 
 Prove the agent is adaptive with numbers, not screenshots.
 
+Current proof claim:
+
+- The agent improves when the starting prompt is weak and failures are measurable.
+- The agent does not accept prompt churn on saturated suites.
+- The adaptive agent catches up to strong tool-using baselines on the smoke suite.
+
+Current non-claim:
+
+- This is not proof of state-of-the-art performance against external products.
+- This is not proof of code-level self-modification.
+- This is not a large public benchmark result.
+
 There are now two benchmark modes:
 
 1. `run.py`: single-system regression and adaptation benchmark
@@ -59,9 +71,10 @@ Practical takeaway:
 
 Provider selection:
 
-- `MODEL_PROVIDER=auto` uses OpenAI first when available, then Anthropic
+- `MODEL_PROVIDER=auto` uses an available OpenAI-compatible local/proxy endpoint first, then OpenAI, then Anthropic
 - `MODEL_PROVIDER=openai` forces OpenAI
 - `MODEL_PROVIDER=anthropic` forces Anthropic
+- `MODEL_PROVIDER=ollama` forces the OpenAI-compatible local/proxy path
 
 ## Run
 
@@ -140,6 +153,13 @@ That page is the human-first benchmark storyboard:
 - one-line summary across runs
 - strongest live proof first
 - tabs for raw per-run reports only after the summary
+
+Read it as a simple story:
+
+- `compare-smoke-live`: adaptive recovery from weak baseline to strong baseline quality
+- `stress-live`: accepted prompt update improves a weak setup
+- `fast` and `full`: already saturated, so no prompt change is accepted
+- old partial artifacts are not the core proof
 
 Use the standalone HTML pages when you want the raw charts for one run:
 

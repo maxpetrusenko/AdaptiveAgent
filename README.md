@@ -2,7 +2,7 @@
 
 [![Python](https://img.shields.io/badge/-Python_3.11-3776AB?logo=python&logoColor=white)](https://python.org)
 [![TypeScript](https://img.shields.io/badge/-TypeScript-3178C6?logo=typescript&logoColor=white)](https://typescriptlang.org)
-[![Next.js](https://img.shields.io/badge/-Next.js_15-000000?logo=next.js&logoColor=white)](https://nextjs.org)
+[![Next.js](https://img.shields.io/badge/-Next.js_16-000000?logo=next.js&logoColor=white)](https://nextjs.org)
 [![FastAPI](https://img.shields.io/badge/-FastAPI-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![LangGraph](https://img.shields.io/badge/-LangGraph-1C3C3C?logo=langchain&logoColor=white)](https://langchain-ai.github.io/langgraph/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -35,7 +35,7 @@ cd AdaptiveAgent
 # Backend
 cd backend
 pip install -e ".[dev]"
-cp .env.example .env          # add your ANTHROPIC_API_KEY
+cp .env.example .env          # add OPENAI_API_KEY or ANTHROPIC_API_KEY
 uvicorn app.main:app --reload # http://localhost:8000
 
 # Frontend (new terminal)
@@ -49,6 +49,19 @@ Open `http://localhost:3737`. The database and 10 seed eval cases are created au
 ---
 
 ## Benchmark It
+
+What the current benchmark story proves:
+
+- the adaptive loop improves a weak starting prompt when there is a real failure signal
+- accepted adaptations create a new active prompt only after measured improvement
+- saturated suites stay stable instead of forcing pointless prompt churn
+- the adaptive agent can catch up to strong tool-using baselines on the smoke suite
+
+What it does not prove yet:
+
+- state-of-the-art performance against external agent products
+- broad statistical significance across large public benchmarks
+- code-level self-modification beyond prompt updates
 
 Two benchmark modes:
 
@@ -67,6 +80,13 @@ Comparative leaderboard:
 ```bash
 cd backend
 python -m app.benchmarks.compare --out benchmark-results/compare.json
+```
+
+Human-readable storyboard:
+
+```bash
+python -m app.benchmarks.report_html --dir benchmark-results
+open benchmark-results/index.html
 ```
 
 If the seeded suite is already at 100% and you want to prove the loop can recover from a weak prompt, run the stress benchmark:
@@ -89,11 +109,13 @@ The report includes:
 
 The comparative report includes:
 
-- `direct_llm` vs `weak_static_agent` vs `adaptive_agent` vs `seed_tool_agent`
-- held-out pass rates
+- `direct_llm` vs `weak_static_agent` vs `adaptive_agent` vs `seed_tool_agent` vs `sdk_tool_agent`
+- 8 train cases and 42 held-out eval cases across tool use, reasoning, factual recall, safety, uncertainty, privacy, retrieval, prompt-injection, and multi-turn behavior
 - average latency
 - hallucination failures
 - pairwise win/loss/tie deltas against `adaptive_agent`
+- judge calibration on 56 labeled cases
+- adversarial null-agent and judge-bias checks
 
 See [docs/runbooks/benchmarking.md](docs/runbooks/benchmarking.md) for interpretation.
 
@@ -160,11 +182,11 @@ frontend/                       backend/
 
 | Layer | Tech |
 |-------|------|
-| Frontend | Next.js 15, Tailwind CSS, shadcn/ui, Recharts, react-markdown |
+| Frontend | Next.js 16, Tailwind CSS, shadcn/ui, Recharts, react-markdown |
 | Backend | Python 3.11, FastAPI, LangGraph, SQLAlchemy, SQLite |
-| Agent | Claude (via langchain-anthropic), tool calling, SSE streaming |
-| Eval | LLM-as-judge (Haiku for speed), hallucination detection, consistency checks |
-| Testing | Vitest (frontend), pytest (backend), 20 tests total |
+| Agent | OpenAI / Anthropic / OpenAI-compatible local proxy, tool calling, SSE streaming |
+| Eval | deterministic checks first, LLM-as-judge fallback, hallucination detection, consistency checks |
+| Testing | Vitest (frontend), pytest (backend), 45 backend tests currently |
 
 ---
 
@@ -234,7 +256,7 @@ AdaptationRun    → before/after prompt versions + pass rates + accepted?
 
 - **SSE over WebSocket** — simpler, HTTP/2 compatible, matches Anthropic's streaming API
 - **SQLite** — zero-config for MVP, single file, easy to inspect with DB Browser
-- **LLM-as-judge** — Haiku for fast/cheap eval checks, main model for prompt generation
+- **LLM-as-judge fallback** — deterministic checks first; configured judge model handles qualitative checks
 - **Accept/reject gate** — autoresearch pattern: never deploy a regression
 - **Prompt versioning** — every change tracked, full rollback, diff view in UI
 
