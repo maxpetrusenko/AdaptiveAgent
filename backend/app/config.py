@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     ollama_model: str = "gemma4"
     ollama_judge_model: str = "gemma4"
     gemma4_api_key: str = ""
+    llm_timeout_seconds: int = 60
+    benchmark_case_timeout_seconds: int = 90
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:3737"]
 
     class Config:

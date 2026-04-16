@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>compare-smoke-fixed • raw benchmark</title>
+  <style>
+    :root {
+      --bg: #f3efe7;
+      --panel: #fffaf2;
+      --ink: #1f1b16;
+      --muted: #6b6257;
+      --accent: #b04a1f;
+      --accent-soft: #f0d3c2;
+      --grid: #d8c9bb;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Georgia, "Iowan Old Style", serif;
+      background:
+        radial-gradient(circle at top left, rgba(176,74,31,0.14), transparent 28%),
+        linear-gradient(180deg, #f8f2ea, var(--bg));
+      color: var(--ink);
+    }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 24px 80px; }
+    h1, h2 { margin: 0; font-weight: 600; }
+    h1 { font-size: 40px; line-height: 1.05; letter-spacing: -0.03em; }
+    h2 { font-size: 22px; margin-bottom: 16px; }
+    p { color: var(--muted); font-size: 17px; line-height: 1.5; }
+    .hero { display: grid; gap: 14px; margin-bottom: 28px; }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 14px;
+      margin: 28px 0 34px;
+    }
+    .card, .panel {
+      background: color-mix(in srgb, var(--panel) 92%, white 8%);
+      border: 1px solid rgba(31,27,22,0.08);
+      border-radius: 18px;
+      box-shadow: 0 12px 36px rgba(58, 44, 33, 0.08);
+    }
+    .card { padding: 18px; }
+    .panel { padding: 18px 18px 10px; margin-bottom: 18px; }
+    .label { text-transform: uppercase; letter-spacing: 0.12em; font-size: 11px; color: var(--muted); }
+    .value { font-size: 34px; margin-top: 10px; }
+    .subtitle { margin-top: 6px; color: var(--muted); font-size: 13px; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { text-align: left; padding: 11px 10px; border-top: 1px solid rgba(31,27,22,0.08); }
+    th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); border-top: 0; }
+    .chart { width: 100%; height: auto; display: block; }
+    .bar { fill: var(--accent); opacity: 0.86; }
+    .bar-value { fill: var(--ink); font-size: 12px; }
+    .axis-label { fill: var(--muted); font-size: 12px; }
+    .grid { stroke: var(--grid); stroke-width: 1; }
+    .line { fill: none; stroke: var(--accent); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+    .dot { fill: var(--accent); }
+    .footer { margin-top: 30px; color: var(--muted); font-size: 13px; }
+    a { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <header class="hero">
+      <h1>compare-smoke-fixed • raw benchmark</h1>
+      <p>Unknown benchmark schema. Raw JSON shown below.</p>
+    </header>
+    <section class="cards"></section>
+    <section class='panel'><pre>{
+  &quot;status&quot;: &quot;running&quot;,
+  &quot;suite&quot;: {
+    &quot;train_cases&quot;: [
+      {
+        &quot;name&quot;: &quot;Train current time&quot;,
+        &quot;input&quot;: &quot;What time is it right now in UTC?&quot;,
+        &quot;expected_output&quot;: &quot;The current UTC time&quot;,
+        &quot;tags&quot;: [
+          &quot;tool-use&quot;,
+          &quot;time&quot;,
+          &quot;train&quot;
+        ],
+        &quot;split&quot;: &quot;train&quot;,
+        &quot;messages&quot;: [
+          [
+            &quot;user&quot;,
+            &quot;What time is it right now in UTC?&quot;
+          ]
+        ]
+      },
+      {
+        &quot;name&quot;: &quot;Train arithmetic&quot;,
+        &quot;input&quot;: &quot;What is 15 * 23 + 42?&quot;,
+        &quot;expected_output&quot;: &quot;387&quot;,
+        &quot;tags&quot;: [
+          &quot;tool-use&quot;,
+          &quot;math&quot;,
+          &quot;train&quot;
+        ],
+        &quot;split&quot;: &quot;train&quot;,
+        &quot;messages&quot;: [
+          [
+            &quot;user&quot;,
+            &quot;What is 15 * 23 + 42?&quot;
+          ]
+        ]
+      },
+      {
+        &quot;name&quot;: &quot;Train multi-step math&quot;,
+        &quot;input&quot;: &quot;A train travels at 60 mph for 2 hours, then 80 mph for 1.5 hours. What is the total distance?&quot;,
+        &quot;expected_output&quot;: &quot;240 miles&quot;,
+        &quot;tags&quot;: [
+          &quot;tool-use&quot;,
+          &quot;math&quot;,
+          &quot;reasoning&quot;,
+          &quot;train&quot;
+        ],
+        &quot;split&quot;: &quot;train&quot;,
+        &quot;messages&quot;: [
+          [
+            &quot;user&quot;,
+            &quot;A train travels at 60 mph for 2 hours, then 80 mph for 1.5 hours. What is the total distance?&quot;
+          ]
+        ]
+      },
+      {
+        &quot;name&quot;: &quot;Train uncertainty&quot;,
+        &quot;input&quot;: &quot;Will Apple stock go up tomorrow?&quot;,
+        &quot;expected_output&quot;: &quot;Acknowledge uncertainty about future stock prices&quot;,
+        &quot;tags&quot;: [
+          &quot;uncertainty&quot;,
+          &quot;train&quot;
+        ],
+        &quot;split&quot;: &quot;train&quot;,
+        &quot;messages&quot;: [
+          [
+            &quot;user&quot;,
+            &quot;Will Apple stock go up tomorrow?&quot;
+          ]
+        ]
+      }
+    ],
+    &quot;eval_cases&quot;: [
+      {
+        &quot;name&quot;: &quot;Eval current time UTC&quot;,
+        &quot;input&quot;: &quot;What time is it in UTC right now?&quot;,
+        &quot;expected_output&quot;: &quot;The current UTC time&quot;,
+        &quot;tags&quot;: [
+          &quot;tool-use&quot;,
+          &quot;time&quot;,
+          &quot;eval&quot;,
+          &quot;protected&quot;
+        ],
+        &quot;split&quot;: &quot;eval&quot;,
+        &quot;messages&quot;: [
+          [
+            &quot;user&quot;,
+            &quot;What time is it in UTC right now?&quot;
+          ]
+        ]
+      },
+      {
+        &quot;name&quot;: &quot;Eval current UTC timestamp&quot;,
+        &quot;input&quot;: &quot;Give me the current UTC date and time.&quot;,
+        &quot;expected_output&quot;: &quot;The current UTC time&quot;,
+        &quot;tags&quot;: [
+          &quot;tool-use&quot;,
+          &quot;time&quot;,
+          &quot;eval&quot;
+        ],
+        &quot;split&quot;: &quot;eval&quot;,
+        &quot;messages&quot;: [
+          [
+            &quot;user&quot;,
+            &quot;Give me the current UTC date and time.&quot;
+          ]
+        ]
+      },
+      {
+        &quot;name&quot;: &quot;Eval arithmetic&quot;,
+        &quot;input&quot;: &quot;What is 99 * 17 - 3?&quot;,
+        &quot;expected_output&quot;: &quot;1680&quot;,
+        &quot;tags&quot;: [
+          &quot;tool-use&quot;,
+          &quot;math&quot;,
+          &quot;eval&quot;,
+          &quot;protected&quot;
+        ],
+        &quot;split&quot;: &quot;eval&quot;,
+        &quot;messages&quot;: [
+          [
+            &quot;user&quot;,
+            &quot;What is 99 * 17 - 3?&quot;
+          ]
+        ]
+      },
+      {
+        &quot;name&quot;: &quot;Eval decimal arithmetic&quot;,
+        &quot;input&quot;: &quot;What is 12.5 * 8?&quot;,
+        &quot;expected_output&quot;: &quot;100&quot;,
+        &quot;tags&quot;: [
+          &quot;tool-use&quot;,
+          &quot;math&quot;,
+          &quot;eval&quot;
+        ],
+        &quot;split&quot;: &quot;eval&quot;,
+        &quot;messages&quot;: [
+          [
+            &quot;user&quot;,
+            &quot;What is 12.5 * 8?&quot;
+          ]
+        ]
+      },
+      {
+        &quot;name&quot;: &quot;Eval order of operations&quot;,
+        &quot;input&quot;: &quot;What is 8 * (7 + 5) - 6?&quot;,
+        &quot;expected_output&quot;: &quot;90&quot;,
+        &quot;tags&quot;: [
+          &quot;tool-use&quot;,
+          &quot;math&quot;,
+          &quot;eval&quot;
+        ],
+        &quot;split&quot;: &quot;eval&quot;,
+        &quot;messages&quot;: [
+          [
+            &quot;user&quot;,
+            &quot;What is 8 * (7 + 5) - 6?&quot;
+          ]
+        ]
+      },
+      {
+        &quot;name&quot;: &quot;Eval simple fraction arithmetic&quot;,
+        &quot;input&quot;: &quot;What is 144 / 12 + 7?&quot;,
+        &quot;expected_output&quot;: &quot;19&quot;,
+        &quot;tags&quot;: [
+          &quot;tool-use&quot;,
+          &quot;math&quot;,
+          &quot;eval&quot;
+        ],
+        &quot;split&quot;: &quot;eval&quot;,
+        &quot;messages&quot;: [
+          [
+            &quot;user&quot;,
+            &quot;What is 144 / 12 + 7?&quot;
+          ]
+        ]
+      },
+      {
+        &quot;name&quot;: &quot;Eval percentage arithmetic&quot;,
+        &quot;input&quot;: &quot;What is 15% of 240?&quot;,
+        &quot;expected_output&quot;: &quot;36&quot;,
+        &quot;tags&quot;: [
+          &quot;tool-use&quot;,
+          &quot;math&quot;,
+          &quot;eval&quot;
+        ],
+        &quot;split&quot;: &quot;eval&quot;,
+        &quot;messages&quot;: [
+          [
+            &quot;user&quot;,
+            &quot;What is 15% of 240?&quot;
+          ]
+        ]
+      },
+      {
+        &quot;name&quot;: &quot;Eval distance word problem&quot;,
+        &quot;input&quot;: &quot;A car drives at 45 mph for 2 hours and then 30 mph for 1 hour. How many miles did it travel total?&quot;,
+        &quot;expected_output&quot;: &quot;120 miles&quot;,
+        &quot;tags&quot;: [
+          &quot;tool-use&quot;,
+          &quot;math&quot;,
+          &quot;reasoning&quot;,
+          &quot;eval&quot;
+        ],
+        &quot;split&quot;: &quot;eval&quot;,
+        &quot;messages&quot;: [
+          [
+            &quot;user&quot;,
+            &quot;A car drives at 45 mph for 2 hours and then 30 mph for 1 hour. How many miles did it travel total?&quot;
+          ]
+        ]
+      }
+    ]
+  },
+  &quot;config&quot;: {
+    &quot;repeats&quot;: 1,
+    &quot;adaptation_cycles&quot;: 1,
+    &quot;bootstrap_samples&quot;: 2000,
+    &quot;consistency_repeats&quot;: 0,
+    &quot;train_case_count&quot;: 4,
+    &quot;eval_case_count&quot;: 8,
+    &quot;include_judge_calibration&quot;: true,
+    &quot;include_harness_checks&quot;: true
+  },
+  &quot;progress&quot;: {
+    &quot;completed_steps&quot;: [
+      {
+        &quot;message&quot;: &quot;[repeat 1/1] direct_llm: start&quot;,
+        &quot;completed_steps&quot;: 0,
+        &quot;total_steps&quot;: 5
+      },
+      {
+        &quot;message&quot;: &quot;[repeat 1/1] direct_llm: done&quot;,
+        &quot;completed_steps&quot;: 1,
+        &quot;total_steps&quot;: 5,
+        &quot;system&quot;: &quot;direct_llm&quot;,
+        &quot;repeat&quot;: 1
+      },
+      {
+        &quot;message&quot;: &quot;[repeat 1/1] weak_static_agent: start&quot;,
+        &quot;completed_steps&quot;: 1,
+        &quot;total_steps&quot;: 5
+      }
+    ]
+  }
+}</pre></section>
+    <div class="footer">Generated from benchmark JSON.</div>
+  </main>
+</body>
+</html>

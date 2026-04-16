@@ -3,72 +3,96 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Benchmark Reports</title>
+  <title>Benchmark Storyboard</title>
   <style>
     :root {
-      --bg: #f3efe7;
-      --panel: #fffaf2;
-      --ink: #1f1b16;
-      --muted: #6b6257;
-      --accent: #b04a1f;
-      --accent-soft: #f0d3c2;
-      --grid: #d8c9bb;
+      --bg: #efe8dd;
+      --panel: #fff9f1;
+      --ink: #1a1815;
+      --muted: #655d53;
+      --accent: #b54a22;
+      --line: #d8ccbc;
+      --soft: #f2ddcf;
     }
     * { box-sizing: border-box; }
     body {
       margin: 0;
       font-family: Georgia, "Iowan Old Style", serif;
-      background:
-        radial-gradient(circle at top left, rgba(176,74,31,0.14), transparent 28%),
-        linear-gradient(180deg, #f8f2ea, var(--bg));
       color: var(--ink);
+      background:
+        radial-gradient(circle at top right, rgba(181,74,34,0.15), transparent 24%),
+        linear-gradient(180deg, #f7f0e8, var(--bg));
     }
-    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 24px 80px; }
-    h1, h2 { margin: 0; font-weight: 600; }
-    h1 { font-size: 40px; line-height: 1.05; letter-spacing: -0.03em; }
-    h2 { font-size: 22px; margin-bottom: 16px; }
-    p { color: var(--muted); font-size: 17px; line-height: 1.5; }
-    .hero { display: grid; gap: 14px; margin-bottom: 28px; }
-    .cards {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 14px;
-      margin: 28px 0 34px;
-    }
+    .wrap { max-width: 1240px; margin: 0 auto; padding: 36px 24px 80px; }
+    .hero { margin-bottom: 24px; }
+    h1 { margin: 0; font-size: 48px; line-height: 1.02; letter-spacing: -0.04em; }
+    h2 { margin: 0 0 12px; font-size: 24px; }
+    p { color: var(--muted); font-size: 17px; line-height: 1.55; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin: 22px 0 28px; }
     .card, .panel {
       background: color-mix(in srgb, var(--panel) 92%, white 8%);
-      border: 1px solid rgba(31,27,22,0.08);
+      border: 1px solid rgba(26,24,21,0.08);
       border-radius: 18px;
-      box-shadow: 0 12px 36px rgba(58, 44, 33, 0.08);
+      box-shadow: 0 14px 42px rgba(64, 45, 30, 0.08);
     }
     .card { padding: 18px; }
-    .panel { padding: 18px 18px 10px; margin-bottom: 18px; }
+    .panel { padding: 18px; margin-bottom: 18px; }
     .label { text-transform: uppercase; letter-spacing: 0.12em; font-size: 11px; color: var(--muted); }
     .value { font-size: 34px; margin-top: 10px; }
-    .subtitle { margin-top: 6px; color: var(--muted); font-size: 13px; }
+    .subtitle, .muted { color: var(--muted); font-size: 13px; }
     table { width: 100%; border-collapse: collapse; font-size: 14px; }
-    th, td { text-align: left; padding: 11px 10px; border-top: 1px solid rgba(31,27,22,0.08); }
-    th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); border-top: 0; }
-    .chart { width: 100%; height: auto; display: block; }
-    .bar { fill: var(--accent); opacity: 0.86; }
-    .bar-value { fill: var(--ink); font-size: 12px; }
-    .axis-label { fill: var(--muted); font-size: 12px; }
-    .grid { stroke: var(--grid); stroke-width: 1; }
-    .line { fill: none; stroke: var(--accent); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
-    .dot { fill: var(--accent); }
-    .footer { margin-top: 30px; color: var(--muted); font-size: 13px; }
+    th, td { text-align: left; padding: 11px 10px; border-top: 1px solid rgba(26,24,21,0.08); vertical-align: top; }
+    th { border-top: 0; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+    .tabs { display: flex; flex-wrap: wrap; gap: 10px; margin: 18px 0 16px; }
+    .tab-button {
+      appearance: none; border: 0; border-radius: 999px; padding: 10px 14px;
+      background: var(--soft); color: var(--ink); cursor: pointer; font: inherit;
+    }
+    .tab-button.active { background: var(--accent); color: white; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+    .report-frame {
+      width: 100%; min-height: 1280px; border: 1px solid rgba(26,24,21,0.08);
+      border-radius: 18px; background: white;
+    }
     a { color: var(--accent); }
   </style>
 </head>
 <body>
   <main class="wrap">
     <header class="hero">
-      <h1>Benchmark Reports</h1>
-      <p>Static HTML views for every benchmark JSON artifact in this directory.</p>
+      <h1>Benchmark Storyboard</h1>
+      <p>Strongest live proof: compare-smoke-live improved 50.0% → 100.0%. All rows normalize to the same human question: where did the benchmark start, where did it end, and did the adaptive loop measurably help?</p>
     </header>
-    <section class="cards"><section class='card'><div class='label'>reports</div><div class='value'>6</div></section></section>
-    <table><thead><tr><th>html</th><th>source json</th></tr></thead><tbody><tr><td><a href='compare-smoke-live.html'>compare-smoke-live.html</a></td><td>compare-smoke-live.json</td></tr><tr><td><a href='compare.html'>compare.html</a></td><td>compare.json</td></tr><tr><td><a href='fast.html'>fast.html</a></td><td>fast.json</td></tr><tr><td><a href='full.html'>full.html</a></td><td>full.json</td></tr><tr><td><a href='stress-live.html'>stress-live.html</a></td><td>stress-live.json</td></tr><tr><td><a href='stress-tool-use.html'>stress-tool-use.html</a></td><td>stress-tool-use.json</td></tr></tbody></table>
-    <div class="footer">Generated from benchmark JSON.</div>
+    <section class="cards">
+      <section class='card'><div class='label'>reports</div><div class='value'>7</div></section>
+      <section class='card'><div class='label'>improving runs</div><div class='value'>3</div></section>
+      <section class='card'><div class='label'>best delta</div><div class='value'>50.0%</div></section>
+      <section class='card'><div class='label'>strongest run</div><div class='value'>compare-smoke-live</div></section>
+    </section>
+    <section class="panel">
+      <h2>Normalized Summary</h2>
+      <p>Different benchmark types are now shown on one shared scale: start pass rate, end pass rate, delta, acceptance, and case count. Raw suites still differ, but the story reads consistently.</p>
+      <table><thead><tr><th>report</th><th>kind</th><th>cases</th><th>start</th><th>end</th><th>delta</th><th>accepted</th><th>story</th></tr></thead><tbody><tr><td>compare-smoke-fixed</td><td>raw</td><td>0</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>n/a</td><td>Unnormalized benchmark artifact.</td></tr><tr><td>compare-smoke-live</td><td>comparative</td><td>4</td><td>50.0%</td><td>100.0%</td><td>50.0%</td><td>yes</td><td>Adaptive track moved 50.0% → 100.0%. Delta vs direct 50.0%. Delta vs weak 50.0%.</td></tr><tr><td>compare</td><td>comparative</td><td>0</td><td>0.0%</td><td>100.0%</td><td>100.0%</td><td>no</td><td>Adaptive track moved 0.0% → 100.0%. Delta vs direct 21.4%. Delta vs weak 14.3%.</td></tr><tr><td>fast</td><td>adaptation</td><td>3</td><td>100.0%</td><td>100.0%</td><td>0.0%</td><td>no</td><td>Pass rate moved 100.0% → 100.0%.</td></tr><tr><td>full</td><td>adaptation</td><td>10</td><td>100.0%</td><td>100.0%</td><td>0.0%</td><td>no</td><td>Pass rate moved 100.0% → 100.0%.</td></tr><tr><td>stress-live</td><td>adaptation</td><td>4</td><td>75.0%</td><td>100.0%</td><td>25.0%</td><td>yes</td><td>Pass rate moved 75.0% → 100.0%. Adaptation accepted and prompt changed.</td></tr><tr><td>stress-tool-use</td><td>adaptation</td><td>2</td><td>50.0%</td><td>100.0%</td><td>50.0%</td><td>yes</td><td>Pass rate moved 50.0% → 100.0%. Adaptation accepted and prompt changed.</td></tr></tbody></table>
+    </section>
+    <section class="panel">
+      <h2>Run Tabs</h2>
+      <p>Each tab opens the full standalone benchmark report inside this page, so a human can follow the summary first and inspect the raw run second.</p>
+      <div class="tabs"><button class='tab-button active' data-tab='tab-0'>compare-smoke-fixed</button><button class='tab-button' data-tab='tab-1'>compare-smoke-live</button><button class='tab-button' data-tab='tab-2'>compare</button><button class='tab-button' data-tab='tab-3'>fast</button><button class='tab-button' data-tab='tab-4'>full</button><button class='tab-button' data-tab='tab-5'>stress-live</button><button class='tab-button' data-tab='tab-6'>stress-tool-use</button></div>
+      <section id='tab-0' class='tab-panel active'><div class='panel'><h2>compare-smoke-fixed</h2><p>Unnormalized benchmark artifact.</p><p class='muted'>Normalized as start pass rate, end pass rate, and delta on that benchmark's own suite. This lets different benchmark types read on one shared scale even when the underlying tasks differ.</p><p><a href='compare-smoke-fixed.html'>open standalone report</a> · <a href='compare-smoke-fixed.json'>open json</a></p></div><iframe class='report-frame' src='compare-smoke-fixed.html' title='compare-smoke-fixed'></iframe></section><section id='tab-1' class='tab-panel'><div class='panel'><h2>compare-smoke-live</h2><p>Adaptive track moved 50.0% → 100.0%. Delta vs direct 50.0%. Delta vs weak 50.0%.</p><p class='muted'>Normalized as start pass rate, end pass rate, and delta on that benchmark's own suite. This lets different benchmark types read on one shared scale even when the underlying tasks differ.</p><p><a href='compare-smoke-live.html'>open standalone report</a> · <a href='compare-smoke-live.json'>open json</a></p></div><iframe class='report-frame' src='compare-smoke-live.html' title='compare-smoke-live'></iframe></section><section id='tab-2' class='tab-panel'><div class='panel'><h2>compare</h2><p>Adaptive track moved 0.0% → 100.0%. Delta vs direct 21.4%. Delta vs weak 14.3%.</p><p class='muted'>Normalized as start pass rate, end pass rate, and delta on that benchmark's own suite. This lets different benchmark types read on one shared scale even when the underlying tasks differ.</p><p><a href='compare.html'>open standalone report</a> · <a href='compare.json'>open json</a></p></div><iframe class='report-frame' src='compare.html' title='compare'></iframe></section><section id='tab-3' class='tab-panel'><div class='panel'><h2>fast</h2><p>Pass rate moved 100.0% → 100.0%.</p><p class='muted'>Normalized as start pass rate, end pass rate, and delta on that benchmark's own suite. This lets different benchmark types read on one shared scale even when the underlying tasks differ.</p><p><a href='fast.html'>open standalone report</a> · <a href='fast.json'>open json</a></p></div><iframe class='report-frame' src='fast.html' title='fast'></iframe></section><section id='tab-4' class='tab-panel'><div class='panel'><h2>full</h2><p>Pass rate moved 100.0% → 100.0%.</p><p class='muted'>Normalized as start pass rate, end pass rate, and delta on that benchmark's own suite. This lets different benchmark types read on one shared scale even when the underlying tasks differ.</p><p><a href='full.html'>open standalone report</a> · <a href='full.json'>open json</a></p></div><iframe class='report-frame' src='full.html' title='full'></iframe></section><section id='tab-5' class='tab-panel'><div class='panel'><h2>stress-live</h2><p>Pass rate moved 75.0% → 100.0%. Adaptation accepted and prompt changed.</p><p class='muted'>Normalized as start pass rate, end pass rate, and delta on that benchmark's own suite. This lets different benchmark types read on one shared scale even when the underlying tasks differ.</p><p><a href='stress-live.html'>open standalone report</a> · <a href='stress-live.json'>open json</a></p></div><iframe class='report-frame' src='stress-live.html' title='stress-live'></iframe></section><section id='tab-6' class='tab-panel'><div class='panel'><h2>stress-tool-use</h2><p>Pass rate moved 50.0% → 100.0%. Adaptation accepted and prompt changed.</p><p class='muted'>Normalized as start pass rate, end pass rate, and delta on that benchmark's own suite. This lets different benchmark types read on one shared scale even when the underlying tasks differ.</p><p><a href='stress-tool-use.html'>open standalone report</a> · <a href='stress-tool-use.json'>open json</a></p></div><iframe class='report-frame' src='stress-tool-use.html' title='stress-tool-use'></iframe></section>
+    </section>
   </main>
+  <script>
+    const buttons = Array.from(document.querySelectorAll('.tab-button'));
+    const panels = Array.from(document.querySelectorAll('.tab-panel'));
+    for (const button of buttons) {
+      button.addEventListener('click', () => {
+        for (const item of buttons) item.classList.remove('active');
+        for (const panel of panels) panel.classList.remove('active');
+        button.classList.add('active');
+        document.getElementById(button.dataset.tab)?.classList.add('active');
+      });
+    }
+  </script>
 </body>
 </html>

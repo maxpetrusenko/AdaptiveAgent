@@ -7,7 +7,7 @@ from app.benchmarks.judge_calibration import calibration_cases, run_judge_calibr
 def test_calibration_cases_cover_twenty_static_labeled_examples():
     cases = calibration_cases()
 
-    assert len(cases) >= 20
+    assert len(cases) >= 50
     assert any("math" in case.tags for case in cases)
     assert any(case.expected_pass for case in cases)
     assert any(not case.expected_pass for case in cases)

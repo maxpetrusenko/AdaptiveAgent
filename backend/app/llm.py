@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from functools import lru_cache
+from typing import Any
 
 from app.config import settings
 
@@ -76,6 +78,7 @@ def build_chat_model(*, purpose: str, streaming: bool = False):
             base_url=base_url,
             streaming=streaming,
             temperature=0,
+            timeout=settings.llm_timeout_seconds,
         )
 
     if provider == "openai":
@@ -89,6 +92,7 @@ def build_chat_model(*, purpose: str, streaming: bool = False):
             api_key=settings.openai_api_key,
             streaming=streaming,
             temperature=0,
+            timeout=settings.llm_timeout_seconds,
         )
 
     from langchain_anthropic import ChatAnthropic
@@ -100,6 +104,7 @@ def build_chat_model(*, purpose: str, streaming: bool = False):
         max_tokens=200 if purpose == "judge" else 4096,
         streaming=streaming,
         temperature=0,
+        timeout=settings.llm_timeout_seconds,
     )
 
 
@@ -158,3 +163,84 @@ def sum_usage_metadata(usages: Iterable[dict[str, int]]) -> dict[str, int]:
         "output_tokens": output_tokens,
         "total_tokens": total_tokens,
     }
+
+
+def _content_to_text(content: Any) -> str:
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        blocks: list[str] = []
+        for block in content:
+            if isinstance(block, dict):
+                if block.get("type") == "text":
+                    blocks.append(str(block.get("text", "")))
+                else:
+                    blocks.append(str(block))
+            else:
+                blocks.append(str(block))
+        return "\n".join(blocks)
+    if content is None:
+        return ""
+    return str(content)
+
+
+@lru_cache(maxsize=16)
+def _get_token_encoding(model_name: str) -> Any:
+    import tiktoken
+
+    try:
+        return tiktoken.encoding_for_model(model_name)
+    except Exception:
+        return tiktoken.get_encoding("cl100k_base")
+
+
+def estimate_text_tokens(text: str, *, model_name: str = "gpt-4o-mini") -> int:
+    if not text:
+        return 0
+    encoding = _get_token_encoding(model_name)
+    return len(encoding.encode(text))
+
+
+def estimate_usage_from_texts(
+    *,
+    prompt_texts: Iterable[str],
+    completion_texts: Iterable[str],
+    model_name: str = "gpt-4o-mini",
+) -> dict[str, int | str]:
+    prompt_items = [text for text in prompt_texts if text]
+    completion_items = [text for text in completion_texts if text]
+    prompt_tokens = sum(
+        estimate_text_tokens(text, model_name=model_name)
+        for text in prompt_items
+    ) + (4 * len(prompt_items))
+    output_tokens = sum(
+        estimate_text_tokens(text, model_name=model_name)
+        for text in completion_items
+    ) + (4 * len(completion_items))
+    return {
+        "input_tokens": prompt_tokens,
+        "output_tokens": output_tokens,
+        "total_tokens": prompt_tokens + output_tokens,
+        "source": "estimated",
+    }
+
+
+def estimate_usage_from_messages(
+    *,
+    prompt_messages: Iterable[Any],
+    completion_messages: Iterable[Any],
+    model_name: str = "gpt-4o-mini",
+) -> dict[str, int | str]:
+    prompt_texts = [
+        _content_to_text(getattr(message, "content", message))
+        for message in prompt_messages
+    ]
+    completion_texts = [
+        _content_to_text(getattr(message, "content", message))
+        for message in completion_messages
+    ]
+    return estimate_usage_from_texts(
+        prompt_texts=prompt_texts,
+        completion_texts=completion_texts,
+        model_name=model_name,
+    )

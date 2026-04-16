@@ -5,7 +5,11 @@
 import json
 from pathlib import Path
 
-from app.benchmarks.report_html import render_report, render_report_directory
+from app.benchmarks.report_html import (
+    _normalize_report,
+    render_report,
+    render_report_directory,
+)
 
 
 def test_render_compare_report_contains_graph_sections():
@@ -96,3 +100,24 @@ def test_render_report_directory_writes_html_and_index(tmp_path: Path):
     assert (tmp_path / "run.html") in outputs
     assert (tmp_path / "index.html") in outputs
     assert (tmp_path / "run.html").read_text(encoding="utf-8").startswith("<!doctype html>")
+    index_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    assert "Benchmark Storyboard" in index_html
+    assert "tab-button" in index_html
+
+
+def test_normalize_report_for_compare_shape(tmp_path: Path):
+    path = tmp_path / "compare.json"
+    normalized = _normalize_report(
+        path,
+        {
+            "systems": [{"system": "adaptive_agent", "pass_rate_mean": 1.0}],
+            "pairwise": {"direct_llm": {"pass_rate_delta_mean": 0.5}},
+            "trajectory": {"summary": {"initial": {"pass_rate": 0.5}, "cycles": [{"accepted_rate": 1.0}]}},
+            "config": {"eval_case_count": 8},
+        },
+    )
+
+    assert normalized["kind"] == "comparative"
+    assert normalized["start"] == 0.5
+    assert normalized["end"] == 1.0
+    assert normalized["delta"] == 0.5

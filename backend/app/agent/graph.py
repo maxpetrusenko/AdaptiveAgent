@@ -4,7 +4,7 @@ from langgraph.prebuilt import ToolNode
 
 from app.agent.state import AgentState
 from app.agent.tools import calculator, current_time
-from app.llm import build_chat_model
+from app.llm import build_chat_model, estimate_usage_from_messages
 
 TOOLS = [calculator, current_time]
 
@@ -107,9 +107,11 @@ async def run_agent(
     tool_names_by_id = {}
     usage_totals = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
     saw_usage = False
+    final_ai_message = None
 
     for msg in final_messages:
         if isinstance(msg, AIMessage):
+            final_ai_message = msg
             if msg.content:
                 assistant_content = (
                     msg.content if isinstance(msg.content, str) else str(msg.content)
@@ -141,11 +143,23 @@ async def run_agent(
                 }
             )
 
+    usage_payload = usage_totals if saw_usage else None
+    if usage_payload is None and final_ai_message is not None:
+        prompt_messages = [
+            msg
+            for msg in final_messages
+            if msg is not final_ai_message
+        ]
+        usage_payload = estimate_usage_from_messages(
+            prompt_messages=prompt_messages,
+            completion_messages=[final_ai_message],
+        )
+
     return {
         "content": assistant_content,
         "tool_calls": tool_calls_data if tool_calls_data else None,
         "tool_results": tool_results_data if tool_results_data else None,
-        "usage": usage_totals if saw_usage else None,
+        "usage": usage_payload,
     }
 
 

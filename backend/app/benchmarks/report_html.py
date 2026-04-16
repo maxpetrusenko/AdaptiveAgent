@@ -535,21 +535,256 @@ def render_report_file(json_path: Path) -> Path:
     return html_path
 
 
-def render_report_directory(directory: Path) -> list[Path]:
-    html_paths = [render_report_file(path) for path in sorted(directory.glob("*.json"))]
+def _normalize_report(path: Path, report: dict[str, Any]) -> dict[str, Any]:
+    if "baseline" in report and "post_adaptation" in report:
+        start = float(report.get("baseline", {}).get("mean_pass_rate", 0.0))
+        end = float(report.get("post_adaptation", {}).get("mean_pass_rate", 0.0))
+        delta = float(report.get("delta", {}).get("mean_pass_rate_delta", end - start))
+        accepted = bool(report.get("adaptation", {}).get("accepted"))
+        changed = bool(report.get("delta", {}).get("active_prompt_changed"))
+        cases = int(report.get("config", {}).get("case_count", 0) or 0)
+        story = f"Pass rate moved {_pct(start)} → {_pct(end)}."
+        if accepted and changed and delta > 0:
+            story += " Adaptation accepted and prompt changed."
+        return {
+            "name": path.stem,
+            "html": path.with_suffix(".html").name,
+            "json": path.name,
+            "kind": "adaptation",
+            "start": start,
+            "end": end,
+            "delta": delta,
+            "accepted": accepted,
+            "changed": changed,
+            "cases": cases,
+            "story": story,
+        }
+
+    if "leaderboard" in report or ("systems" in report and "pairwise" in report):
+        systems = report.get("systems", [])
+        adaptive = next((item for item in systems if item.get("system") == "adaptive_agent"), {})
+        trajectory = report.get("trajectory", {}).get("summary", {})
+        start = float(trajectory.get("initial", {}).get("pass_rate", 0.0) or 0.0)
+        end = float(adaptive.get("pass_rate_mean", 0.0) or 0.0)
+        delta = end - start
+        cycles = trajectory.get("cycles", [])
+        accepted = bool(cycles and cycles[-1].get("accepted_rate", 0.0) > 0.0)
+        changed = bool(cycles)
+        cases = int(report.get("config", {}).get("eval_case_count", 0) or 0)
+        pairwise = report.get("pairwise", {})
+        direct = pairwise.get("direct_llm", {}).get("pass_rate_delta_mean")
+        weak = pairwise.get("weak_static_agent", {}).get("pass_rate_delta_mean")
+        story = f"Adaptive track moved {_pct(start)} → {_pct(end)}."
+        if direct is not None and weak is not None:
+            story += f" Delta vs direct {_pct(direct)}. Delta vs weak {_pct(weak)}."
+        return {
+            "name": path.stem,
+            "html": path.with_suffix(".html").name,
+            "json": path.name,
+            "kind": "comparative",
+            "start": start,
+            "end": end,
+            "delta": delta,
+            "accepted": accepted,
+            "changed": changed,
+            "cases": cases,
+            "story": story,
+        }
+
+    if "hardening_checks" in report and "systems" in report:
+        return {
+            "name": path.stem,
+            "html": path.with_suffix(".html").name,
+            "json": path.name,
+            "kind": "adversarial",
+            "start": 0.0,
+            "end": 0.0,
+            "delta": 0.0,
+            "accepted": None,
+            "changed": None,
+            "cases": int(report.get("suite", {}).get("case_count", 0) or 0),
+            "story": "Harness soundness probe.",
+        }
+
+    if "pass_fail" in report and "hallucination" in report:
+        accuracy = float(report.get("case_accuracy", 0.0) or 0.0)
+        return {
+            "name": path.stem,
+            "html": path.with_suffix(".html").name,
+            "json": path.name,
+            "kind": "judge",
+            "start": accuracy,
+            "end": accuracy,
+            "delta": 0.0,
+            "accepted": None,
+            "changed": None,
+            "cases": int(report.get("case_count", 0) or 0),
+            "story": f"Judge case accuracy {_pct(accuracy)}.",
+        }
+
+    return {
+        "name": path.stem,
+        "html": path.with_suffix(".html").name,
+        "json": path.name,
+        "kind": "raw",
+        "start": 0.0,
+        "end": 0.0,
+        "delta": 0.0,
+        "accepted": None,
+        "changed": None,
+        "cases": 0,
+        "story": "Unnormalized benchmark artifact.",
+    }
+
+
+def _dashboard_page(items: list[dict[str, Any]]) -> str:
+    evidence = [item for item in items if item["delta"] > 0 and item["accepted"] is not False]
+    strongest = max(evidence, key=lambda item: item["delta"], default=None)
+    top_story = (
+        f"Strongest live proof: {strongest['name']} improved {_pct(strongest['start'])} → {_pct(strongest['end'])}."
+        if strongest
+        else "No improving run found yet."
+    )
     rows = [
         [
-            f"<a href='{escape(path.name)}'>{escape(path.name)}</a>",
-            escape(path.with_suffix(".json").name),
+            escape(item["name"]),
+            escape(item["kind"]),
+            escape(str(item["cases"])),
+            escape(_pct(item["start"])),
+            escape(_pct(item["end"])),
+            escape(_pct(item["delta"])),
+            escape(
+                "yes" if item["accepted"] is True else "no" if item["accepted"] is False else "n/a"
+            ),
+            escape(item["story"]),
         ]
-        for path in html_paths
+        for item in items
     ]
-    index_html = _page(
-        title="Benchmark Reports",
-        summary="Static HTML views for every benchmark JSON artifact in this directory.",
-        cards=_card("reports", str(len(html_paths))),
-        sections=_table(["html", "source json"], rows),
+    tab_buttons = "".join(
+        f"<button class='tab-button{' active' if idx == 0 else ''}' data-tab='tab-{idx}'>{escape(item['name'])}</button>"
+        for idx, item in enumerate(items)
     )
+    tab_panels = "".join(
+        (
+            f"<section id='tab-{idx}' class='tab-panel{' active' if idx == 0 else ''}'>"
+            f"<div class='panel'><h2>{escape(item['name'])}</h2>"
+            f"<p>{escape(item['story'])}</p>"
+            f"<p class='muted'>Normalized as start pass rate, end pass rate, and delta on that benchmark's own suite. This lets different benchmark types read on one shared scale even when the underlying tasks differ.</p>"
+            f"<p><a href='{escape(item['html'])}'>open standalone report</a> · <a href='{escape(item['json'])}'>open json</a></p></div>"
+            f"<iframe class='report-frame' src='{escape(item['html'])}' title='{escape(item['name'])}'></iframe>"
+            "</section>"
+        )
+        for idx, item in enumerate(items)
+    )
+    return f"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Benchmark Storyboard</title>
+  <style>
+    :root {{
+      --bg: #efe8dd;
+      --panel: #fff9f1;
+      --ink: #1a1815;
+      --muted: #655d53;
+      --accent: #b54a22;
+      --line: #d8ccbc;
+      --soft: #f2ddcf;
+    }}
+    * {{ box-sizing: border-box; }}
+    body {{
+      margin: 0;
+      font-family: Georgia, "Iowan Old Style", serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top right, rgba(181,74,34,0.15), transparent 24%),
+        linear-gradient(180deg, #f7f0e8, var(--bg));
+    }}
+    .wrap {{ max-width: 1240px; margin: 0 auto; padding: 36px 24px 80px; }}
+    .hero {{ margin-bottom: 24px; }}
+    h1 {{ margin: 0; font-size: 48px; line-height: 1.02; letter-spacing: -0.04em; }}
+    h2 {{ margin: 0 0 12px; font-size: 24px; }}
+    p {{ color: var(--muted); font-size: 17px; line-height: 1.55; }}
+    .cards {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin: 22px 0 28px; }}
+    .card, .panel {{
+      background: color-mix(in srgb, var(--panel) 92%, white 8%);
+      border: 1px solid rgba(26,24,21,0.08);
+      border-radius: 18px;
+      box-shadow: 0 14px 42px rgba(64, 45, 30, 0.08);
+    }}
+    .card {{ padding: 18px; }}
+    .panel {{ padding: 18px; margin-bottom: 18px; }}
+    .label {{ text-transform: uppercase; letter-spacing: 0.12em; font-size: 11px; color: var(--muted); }}
+    .value {{ font-size: 34px; margin-top: 10px; }}
+    .subtitle, .muted {{ color: var(--muted); font-size: 13px; }}
+    table {{ width: 100%; border-collapse: collapse; font-size: 14px; }}
+    th, td {{ text-align: left; padding: 11px 10px; border-top: 1px solid rgba(26,24,21,0.08); vertical-align: top; }}
+    th {{ border-top: 0; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }}
+    .tabs {{ display: flex; flex-wrap: wrap; gap: 10px; margin: 18px 0 16px; }}
+    .tab-button {{
+      appearance: none; border: 0; border-radius: 999px; padding: 10px 14px;
+      background: var(--soft); color: var(--ink); cursor: pointer; font: inherit;
+    }}
+    .tab-button.active {{ background: var(--accent); color: white; }}
+    .tab-panel {{ display: none; }}
+    .tab-panel.active {{ display: block; }}
+    .report-frame {{
+      width: 100%; min-height: 1280px; border: 1px solid rgba(26,24,21,0.08);
+      border-radius: 18px; background: white;
+    }}
+    a {{ color: var(--accent); }}
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <header class="hero">
+      <h1>Benchmark Storyboard</h1>
+      <p>{escape(top_story)} All rows normalize to the same human question: where did the benchmark start, where did it end, and did the adaptive loop measurably help?</p>
+    </header>
+    <section class="cards">
+      {_card("reports", str(len(items)))}
+      {_card("improving runs", str(len(evidence)))}
+      {_card("best delta", _pct(strongest["delta"]) if strongest else None)}
+      {_card("strongest run", strongest["name"] if strongest else "n/a")}
+    </section>
+    <section class="panel">
+      <h2>Normalized Summary</h2>
+      <p>Different benchmark types are now shown on one shared scale: start pass rate, end pass rate, delta, acceptance, and case count. Raw suites still differ, but the story reads consistently.</p>
+      {_table(["report", "kind", "cases", "start", "end", "delta", "accepted", "story"], rows)}
+    </section>
+    <section class="panel">
+      <h2>Run Tabs</h2>
+      <p>Each tab opens the full standalone benchmark report inside this page, so a human can follow the summary first and inspect the raw run second.</p>
+      <div class="tabs">{tab_buttons}</div>
+      {tab_panels}
+    </section>
+  </main>
+  <script>
+    const buttons = Array.from(document.querySelectorAll('.tab-button'));
+    const panels = Array.from(document.querySelectorAll('.tab-panel'));
+    for (const button of buttons) {{
+      button.addEventListener('click', () => {{
+        for (const item of buttons) item.classList.remove('active');
+        for (const panel of panels) panel.classList.remove('active');
+        button.classList.add('active');
+        document.getElementById(button.dataset.tab)?.classList.add('active');
+      }});
+    }}
+  </script>
+</body>
+</html>
+"""
+
+
+def render_report_directory(directory: Path) -> list[Path]:
+    json_paths = sorted(directory.glob("*.json"))
+    html_paths = [render_report_file(path) for path in json_paths]
+    normalized = [
+        _normalize_report(path, json.loads(path.read_text(encoding="utf-8")))
+        for path in json_paths
+    ]
+    index_html = _dashboard_page(normalized)
     index_path = directory / "index.html"
     index_path.write_text(index_html, encoding="utf-8")
     return [*html_paths, index_path]

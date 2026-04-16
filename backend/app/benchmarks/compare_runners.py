@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import time
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -17,8 +18,9 @@ from app.agent.tools import calculator, current_time
 from app.benchmarks.compare_metrics import bootstrap_ci
 from app.benchmarks.compare_suite import BenchmarkCase
 from app.benchmarks.compare_types import CaseResult, SystemSummary
+from app.config import settings
 from app.eval.checks import check_deterministic, check_hallucination, check_pass_fail
-from app.llm import build_chat_model
+from app.llm import build_chat_model, estimate_usage_from_messages
 from app.models import Base, EvalCase, PromptVersion
 
 TOOLS = [calculator, current_time]
@@ -91,27 +93,11 @@ async def evaluate_cases(cases: list[BenchmarkCase], runner) -> SystemSummary:
     for case in cases:
         start = time.perf_counter()
         try:
-            system_result = await runner(case)
-            actual_output = system_result["content"]
-            tool_results = system_result.get("tool_results")
-            usage = extract_usage(system_result)
-            merge_usage(usage_totals, usage)
-
-            check_result = check_deterministic(case.expected_output, actual_output)
-            if check_result is None:
-                check_result = await check_pass_fail(
-                    case.input,
-                    case.expected_output,
-                    actual_output,
-                )
-
-            hallucination = await check_hallucination(
-                case.input,
-                actual_output,
-                tool_results=tool_results,
-                case_tags=case.tags,
-                deterministic_result=check_result,
+            system_result, check_result, hallucination, usage = await asyncio.wait_for(
+                _evaluate_case(case, runner),
+                timeout=settings.benchmark_case_timeout_seconds,
             )
+            merge_usage(usage_totals, usage)
 
             status = "pass" if check_result["pass"] else "fail"
             error = None if check_result["pass"] else check_result["reason"]
@@ -141,9 +127,27 @@ async def evaluate_cases(cases: list[BenchmarkCase], runner) -> SystemSummary:
                     status=status,
                     score=float(check_result["score"]),
                     error=error,
-                    actual_output=actual_output,
+                    actual_output=system_result["content"],
                     latency_ms=latency_ms,
                     usage=usage,
+                )
+            )
+        except asyncio.TimeoutError:
+            latency_ms = int((time.perf_counter() - start) * 1000)
+            latency_total += latency_ms
+            failed += 1
+            for tag in case.tags:
+                tag_counts[tag] = tag_counts.get(tag, 0) + 1
+            pass_values.append(0.0)
+            results.append(
+                CaseResult(
+                    case_name=case.name,
+                    status="error",
+                    score=0.0,
+                    error=f"Timed out after {settings.benchmark_case_timeout_seconds}s",
+                    actual_output="",
+                    latency_ms=latency_ms,
+                    usage=None,
                 )
             )
         except Exception as exc:
@@ -181,6 +185,33 @@ async def evaluate_cases(cases: list[BenchmarkCase], runner) -> SystemSummary:
         metadata={"usage_totals": usage_totals},
         pass_rate_ci_95=bootstrap_ci(pass_values),
     )
+
+
+async def _evaluate_case(
+    case: BenchmarkCase,
+    runner,
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any] | None]:
+    system_result = await runner(case)
+    actual_output = system_result["content"]
+    tool_results = system_result.get("tool_results")
+    usage = extract_usage(system_result)
+
+    check_result = check_deterministic(case.expected_output, actual_output)
+    if check_result is None:
+        check_result = await check_pass_fail(
+            case.input,
+            case.expected_output,
+            actual_output,
+        )
+
+    hallucination = await check_hallucination(
+        case.input,
+        actual_output,
+        tool_results=tool_results,
+        case_tags=case.tags,
+        deterministic_result=check_result,
+    )
+    return system_result, check_result, hallucination, usage
 
 
 async def seed_cases(
@@ -224,11 +255,16 @@ async def run_direct_llm_benchmark(
     model = build_chat_model(purpose="agent", streaming=False)
 
     async def runner(case: BenchmarkCase) -> dict[str, Any]:
-        response = await model.ainvoke(langchain_messages(case, system_prompt=system_prompt))
+        prompt_messages = langchain_messages(case, system_prompt=system_prompt)
+        response = await model.ainvoke(prompt_messages)
         content = (
             response.content if isinstance(response.content, str) else str(response.content)
         )
-        return {"content": content, "tool_results": None, "usage": extract_usage(response)}
+        usage = extract_usage(response) or estimate_usage_from_messages(
+            prompt_messages=prompt_messages,
+            completion_messages=[response],
+        )
+        return {"content": content, "tool_results": None, "usage": usage}
 
     summary = await evaluate_cases(eval_cases_subset, runner)
     summary.system = "direct_llm"
@@ -273,7 +309,10 @@ async def run_sdk_tool_baseline(
 
         for _ in range(max_steps):
             response = await model.ainvoke(conversation)
-            usage = extract_usage(response)
+            usage = extract_usage(response) or estimate_usage_from_messages(
+                prompt_messages=conversation,
+                completion_messages=[response],
+            )
             merge_usage(usage_totals, usage)
             content = (
                 response.content if isinstance(response.content, str) else str(response.content)

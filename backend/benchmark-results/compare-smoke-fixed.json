@@ -1,0 +1,259 @@
+{
+  "status": "running",
+  "suite": {
+    "train_cases": [
+      {
+        "name": "Train current time",
+        "input": "What time is it right now in UTC?",
+        "expected_output": "The current UTC time",
+        "tags": [
+          "tool-use",
+          "time",
+          "train"
+        ],
+        "split": "train",
+        "messages": [
+          [
+            "user",
+            "What time is it right now in UTC?"
+          ]
+        ]
+      },
+      {
+        "name": "Train arithmetic",
+        "input": "What is 15 * 23 + 42?",
+        "expected_output": "387",
+        "tags": [
+          "tool-use",
+          "math",
+          "train"
+        ],
+        "split": "train",
+        "messages": [
+          [
+            "user",
+            "What is 15 * 23 + 42?"
+          ]
+        ]
+      },
+      {
+        "name": "Train multi-step math",
+        "input": "A train travels at 60 mph for 2 hours, then 80 mph for 1.5 hours. What is the total distance?",
+        "expected_output": "240 miles",
+        "tags": [
+          "tool-use",
+          "math",
+          "reasoning",
+          "train"
+        ],
+        "split": "train",
+        "messages": [
+          [
+            "user",
+            "A train travels at 60 mph for 2 hours, then 80 mph for 1.5 hours. What is the total distance?"
+          ]
+        ]
+      },
+      {
+        "name": "Train uncertainty",
+        "input": "Will Apple stock go up tomorrow?",
+        "expected_output": "Acknowledge uncertainty about future stock prices",
+        "tags": [
+          "uncertainty",
+          "train"
+        ],
+        "split": "train",
+        "messages": [
+          [
+            "user",
+            "Will Apple stock go up tomorrow?"
+          ]
+        ]
+      }
+    ],
+    "eval_cases": [
+      {
+        "name": "Eval current time UTC",
+        "input": "What time is it in UTC right now?",
+        "expected_output": "The current UTC time",
+        "tags": [
+          "tool-use",
+          "time",
+          "eval",
+          "protected"
+        ],
+        "split": "eval",
+        "messages": [
+          [
+            "user",
+            "What time is it in UTC right now?"
+          ]
+        ]
+      },
+      {
+        "name": "Eval current UTC timestamp",
+        "input": "Give me the current UTC date and time.",
+        "expected_output": "The current UTC time",
+        "tags": [
+          "tool-use",
+          "time",
+          "eval"
+        ],
+        "split": "eval",
+        "messages": [
+          [
+            "user",
+            "Give me the current UTC date and time."
+          ]
+        ]
+      },
+      {
+        "name": "Eval arithmetic",
+        "input": "What is 99 * 17 - 3?",
+        "expected_output": "1680",
+        "tags": [
+          "tool-use",
+          "math",
+          "eval",
+          "protected"
+        ],
+        "split": "eval",
+        "messages": [
+          [
+            "user",
+            "What is 99 * 17 - 3?"
+          ]
+        ]
+      },
+      {
+        "name": "Eval decimal arithmetic",
+        "input": "What is 12.5 * 8?",
+        "expected_output": "100",
+        "tags": [
+          "tool-use",
+          "math",
+          "eval"
+        ],
+        "split": "eval",
+        "messages": [
+          [
+            "user",
+            "What is 12.5 * 8?"
+          ]
+        ]
+      },
+      {
+        "name": "Eval order of operations",
+        "input": "What is 8 * (7 + 5) - 6?",
+        "expected_output": "90",
+        "tags": [
+          "tool-use",
+          "math",
+          "eval"
+        ],
+        "split": "eval",
+        "messages": [
+          [
+            "user",
+            "What is 8 * (7 + 5) - 6?"
+          ]
+        ]
+      },
+      {
+        "name": "Eval simple fraction arithmetic",
+        "input": "What is 144 / 12 + 7?",
+        "expected_output": "19",
+        "tags": [
+          "tool-use",
+          "math",
+          "eval"
+        ],
+        "split": "eval",
+        "messages": [
+          [
+            "user",
+            "What is 144 / 12 + 7?"
+          ]
+        ]
+      },
+      {
+        "name": "Eval percentage arithmetic",
+        "input": "What is 15% of 240?",
+        "expected_output": "36",
+        "tags": [
+          "tool-use",
+          "math",
+          "eval"
+        ],
+        "split": "eval",
+        "messages": [
+          [
+            "user",
+            "What is 15% of 240?"
+          ]
+        ]
+      },
+      {
+        "name": "Eval distance word problem",
+        "input": "A car drives at 45 mph for 2 hours and then 30 mph for 1 hour. How many miles did it travel total?",
+        "expected_output": "120 miles",
+        "tags": [
+          "tool-use",
+          "math",
+          "reasoning",
+          "eval"
+        ],
+        "split": "eval",
+        "messages": [
+          [
+            "user",
+            "A car drives at 45 mph for 2 hours and then 30 mph for 1 hour. How many miles did it travel total?"
+          ]
+        ]
+      }
+    ]
+  },
+  "config": {
+    "repeats": 1,
+    "adaptation_cycles": 1,
+    "bootstrap_samples": 2000,
+    "consistency_repeats": 0,
+    "train_case_count": 4,
+    "eval_case_count": 8,
+    "include_judge_calibration": false,
+    "include_harness_checks": false
+  },
+  "progress": {
+    "completed_steps": [
+      {
+        "message": "[repeat 1/1] direct_llm: start",
+        "completed_steps": 0,
+        "total_steps": 5
+      },
+      {
+        "message": "[repeat 1/1] direct_llm: done",
+        "completed_steps": 1,
+        "total_steps": 5,
+        "system": "direct_llm",
+        "repeat": 1
+      },
+      {
+        "message": "[repeat 1/1] weak_static_agent: start",
+        "completed_steps": 1,
+        "total_steps": 5
+      },
+      {
+        "message": "[repeat 1/1] weak_static_agent: done",
+        "completed_steps": 2,
+        "total_steps": 5,
+        "system": "weak_static_agent",
+        "repeat": 1
+      },
+      {
+        "message": "[repeat 1/1] adaptive_agent: start",
+        "completed_steps": 2,
+        "total_steps": 5
+      }
+    ]
+  }
+}
