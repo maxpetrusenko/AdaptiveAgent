@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sparkles, Loader2 } from "lucide-react";
@@ -120,24 +121,31 @@ export default function AdaptPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Adaptation</h2>
           <p className="text-muted-foreground">
-            Self-improving loop: eval &rarr; detect failures &rarr; update
-            prompt &rarr; re-eval.
+            Evaluate proposed changes against training, validation, and protected
+            cases. A run creates a ready or rejected candidate and never
+            activates automatically.
           </p>
+          <Link
+            href="/tasks"
+            className="mt-2 inline-flex text-sm font-semibold underline underline-offset-4"
+          >
+            Review candidates in Tasks
+          </Link>
         </div>
         <Button onClick={handleImprove} disabled={isRunning}>
           {isRunning ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Improving...
+              Evaluating candidate...
             </>
           ) : (
             <>
               <Sparkles className="mr-2 h-4 w-4" />
-              Improve
+              Evaluate candidate
             </>
           )}
         </Button>

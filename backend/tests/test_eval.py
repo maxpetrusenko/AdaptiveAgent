@@ -1,4 +1,5 @@
 import pytest
+from sqlalchemy import select
 
 
 @pytest.mark.asyncio
@@ -119,3 +120,160 @@ async def test_trigger_run_no_cases(client):
     response = await client.post("/api/evals/run")
     assert response.status_code == 400
     assert "cases" in response.json()["detail"].lower()
+
+
+@pytest.mark.asyncio
+async def test_hallucination_failure_zeroes_final_score_and_persists_usage(monkeypatch):
+    from app.database import async_session
+    from app.eval.runner import run_eval_suite
+    from app.models import EvalCase, EvalResult, PromptVersion
+
+    async def fake_run_agent(*args, **kwargs):
+        return {
+            "content": "apparently correct",
+            "tool_results": None,
+            "usage": {"prompt_tokens": 8, "completion_tokens": 2, "total_tokens": 10},
+        }
+
+    async def fake_hallucination(*args, **kwargs):
+        return {
+            "has_hallucination": True,
+            "confidence": 1.0,
+            "details": "unsupported claim",
+        }
+
+    monkeypatch.setattr("app.eval.runner.run_agent", fake_run_agent)
+    monkeypatch.setattr(
+        "app.eval.runner.check_deterministic",
+        lambda *args: {"pass": True, "score": 1.0, "reason": "match"},
+    )
+    monkeypatch.setattr("app.eval.runner.check_hallucination", fake_hallucination)
+
+    async with async_session() as db:
+        prompt = PromptVersion(version=1, content="prompt", is_active=True)
+        case = EvalCase(
+            name="hallucination",
+            input="question",
+            expected_output="apparently correct",
+            tags=["protected"],
+        )
+        db.add_all([prompt, case])
+        await db.commit()
+        run = await run_eval_suite(
+            db,
+            case_ids=[case.id],
+            consistency_repeats=0,
+            prompt_version_id=prompt.id,
+        )
+        result = (
+            await db.execute(
+                select(EvalResult).where(EvalResult.eval_run_id == run.id)
+            )
+        ).scalar_one()
+
+    assert result.status == "fail"
+    assert result.score == 0.0
+    assert result.token_count == 10
+
+
+@pytest.mark.asyncio
+async def test_malformed_hallucination_judge_response_fails_eval(monkeypatch):
+    from app.database import async_session
+    from app.eval.runner import run_eval_suite
+    from app.models import EvalCase, EvalResult, PromptVersion
+
+    class BadJudge:
+        async def ainvoke(self, messages):
+            return type("Response", (), {"content": "not json"})()
+
+    async def fake_run_agent(*args, **kwargs):
+        return {
+            "content": "exact answer",
+            "tool_results": None,
+            "usage": {"prompt_tokens": 5, "completion_tokens": 2, "total_tokens": 7},
+        }
+
+    monkeypatch.setattr("app.eval.runner.run_agent", fake_run_agent)
+    monkeypatch.setattr("app.eval.checks._get_judge_model", BadJudge)
+
+    async with async_session() as db:
+        prompt = PromptVersion(version=1, content="prompt", is_active=True)
+        case = EvalCase(
+            name="protected exact answer",
+            input="question",
+            expected_output="exact answer",
+            tags=["protected"],
+        )
+        db.add_all([prompt, case])
+        await db.commit()
+        run = await run_eval_suite(
+            db,
+            case_ids=[case.id],
+            consistency_repeats=0,
+            prompt_version_id=prompt.id,
+        )
+        result = (
+            await db.execute(
+                select(EvalResult).where(EvalResult.eval_run_id == run.id)
+            )
+        ).scalar_one()
+
+    assert result.status == "fail"
+    assert result.score == 0.0
+    assert "parse" in result.error.lower()
+
+
+@pytest.mark.asyncio
+async def test_malformed_consistency_judge_response_fails_eval(monkeypatch):
+    from app.database import async_session
+    from app.eval.runner import run_eval_suite
+    from app.models import EvalCase, EvalResult, PromptVersion
+
+    class BadJudge:
+        async def ainvoke(self, messages):
+            return type("Response", (), {"content": "not json"})()
+
+    async def fake_run_agent(*args, **kwargs):
+        return {
+            "content": "4",
+            "tool_results": None,
+            "usage": {"prompt_tokens": 5, "completion_tokens": 1, "total_tokens": 6},
+        }
+
+    async def grounded(*args, **kwargs):
+        return {
+            "has_hallucination": False,
+            "confidence": 1.0,
+            "details": "grounded",
+        }
+
+    monkeypatch.setattr("app.eval.runner.run_agent", fake_run_agent)
+    monkeypatch.setattr("app.eval.runner.check_hallucination", grounded)
+    monkeypatch.setattr("app.eval.checks._get_judge_model", BadJudge)
+
+    async with async_session() as db:
+        prompt = PromptVersion(version=1, content="prompt", is_active=True)
+        case = EvalCase(
+            name="reasoning consistency",
+            input="2 + 2",
+            expected_output="4",
+            tags=["reasoning", "validation"],
+        )
+        db.add_all([prompt, case])
+        await db.commit()
+        run = await run_eval_suite(
+            db,
+            case_ids=[case.id],
+            consistency_repeats=1,
+            prompt_version_id=prompt.id,
+        )
+        result = (
+            await db.execute(
+                select(EvalResult).where(EvalResult.eval_run_id == run.id)
+            )
+        ).scalar_one()
+
+    assert result.status == "fail"
+    assert result.score == 0.0
+    assert "inconsistent" in result.error.lower()
+    assert result.token_count == 12

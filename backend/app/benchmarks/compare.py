@@ -155,6 +155,7 @@ async def run_compare_benchmark(
     max_eval_cases: int | None = None,
     include_judge_calibration: bool = True,
     include_harness_checks: bool = True,
+    promote_candidate: bool = False,
     progress_cb=None,
 ) -> dict[str, Any]:
     train_cases_subset = train_cases(max_train_cases)
@@ -250,6 +251,7 @@ async def run_compare_benchmark(
                 consistency_repeats=consistency_repeats,
                 eval_cases_subset=eval_cases_subset,
                 train_cases_subset=train_cases_subset,
+                promote_candidate=promote_candidate,
             )
         except Exception as exc:
             adaptive_ok = False
@@ -388,6 +390,7 @@ async def run_compare_benchmark(
             "eval_case_count": len(eval_cases_subset),
             "include_judge_calibration": include_judge_calibration,
             "include_harness_checks": include_harness_checks,
+            "promote_candidate": promote_candidate,
         },
         "systems": summaries,
         "leaderboard": leaderboard,

@@ -108,6 +108,7 @@ class EvalResult(Base):
     score: Mapped[float | None] = mapped_column(Float, nullable=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     latency_ms: Mapped[int] = mapped_column(Integer, default=0)
+    token_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     eval_run: Mapped["EvalRun"] = relationship(back_populates="results")
     eval_case: Mapped["EvalCase"] = relationship(back_populates="results")
@@ -131,3 +132,33 @@ class AdaptationRun(Base):
     before_pass_rate: Mapped[float] = mapped_column(Float, default=0.0)
     after_pass_rate: Mapped[float | None] = mapped_column(Float, nullable=True)
     accepted: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class PromotionRecord(Base):
+    """Persisted verifier decision and operator promotion lifecycle."""
+
+    __tablename__ = "promotion_records"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=generate_uuid)
+    adaptation_run_id: Mapped[str] = mapped_column(
+        String, ForeignKey("adaptation_runs.id")
+    )
+    parent_prompt_id: Mapped[str] = mapped_column(
+        String, ForeignKey("prompt_versions.id")
+    )
+    candidate_prompt_id: Mapped[str] = mapped_column(
+        String, ForeignKey("prompt_versions.id")
+    )
+    parent_hash: Mapped[str] = mapped_column(String)
+    candidate_hash: Mapped[str] = mapped_column(String)
+    dataset_hashes: Mapped[dict] = mapped_column(JSON)
+    raw_results: Mapped[dict] = mapped_column(JSON)
+    metrics: Mapped[dict] = mapped_column(JSON)
+    policy: Mapped[dict] = mapped_column(JSON)
+    mutations: Mapped[list] = mapped_column(JSON)
+    decision_action: Mapped[str] = mapped_column(String)
+    rationale: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    promoted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    rolled_back_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

@@ -14,6 +14,13 @@ from statistics import mean, pstdev
 from sqlalchemy import select
 
 from app.adapt.loop import create_adaptation_run, run_adaptation_loop
+from app.benchmarks.promotion import (
+    candidate_for_run,
+    candidate_report,
+)
+from app.benchmarks.promotion import (
+    promote_candidate as promote_persisted_candidate,
+)
 from app.benchmarks.report_html import render_report_file
 from app.database import async_session, init_db
 from app.eval.runner import run_eval_suite
@@ -179,6 +186,7 @@ async def run_benchmark(
     max_cases: int | None = None,
     consistency_repeats: int = 2,
     stress_baseline: str = "none",
+    promote_candidate: bool = False,
 ) -> dict:
     await ensure_seed_state()
 
@@ -209,6 +217,15 @@ async def run_benchmark(
             case_ids=case_ids,
             consistency_repeats=consistency_repeats,
         )
+        candidate = await candidate_for_run(db, adaptation_run.id)
+        candidate_prompt = await db.get(PromptVersion, candidate.candidate_prompt_id)
+        if candidate_prompt is None:
+            raise RuntimeError("Persisted candidate prompt not found")
+
+        promoted = False
+        if promote_candidate:
+            promoted = await promote_persisted_candidate(db, candidate)
+            await db.refresh(adaptation_run)
         final_prompt = await _load_active_prompt(db)
 
         post_runs: list[RunSummary] = []
@@ -220,6 +237,7 @@ async def run_benchmark(
                         db,
                         case_ids=case_ids,
                         consistency_repeats=consistency_repeats,
+                        prompt_version_id=candidate_prompt.id,
                     ),
                 )
             )
@@ -230,9 +248,10 @@ async def run_benchmark(
     report = {
         "baseline_prompt_version": baseline_prompt.version,
         "final_prompt_version": final_prompt.version,
+        "candidate": candidate_report(candidate, promoted=promoted),
         "adaptation": {
             "run_id": adaptation_run.id,
-            "accepted": adaptation_run.accepted,
+            "accepted": promoted,
             "before_pass_rate": adaptation_run.before_pass_rate,
             "after_pass_rate": adaptation_run.after_pass_rate,
             "before_version_id": adaptation_run.before_version_id,
@@ -258,6 +277,7 @@ async def run_benchmark(
             "max_cases": max_cases,
             "consistency_repeats": consistency_repeats,
             "stress_baseline": stress_baseline,
+            "promote_candidate": promote_candidate,
             "case_count": len(case_ids),
         },
     }
@@ -296,6 +316,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Extra reruns for consistency-checked cases",
     )
     parser.add_argument(
+        "--promote-candidate",
+        action="store_true",
+        help="Explicitly promote an eligible evaluated candidate",
+    )
+    parser.add_argument(
         "--stress-baseline",
         default="none",
         choices=sorted(STRESS_BASELINES.keys()),
@@ -312,6 +337,7 @@ async def _async_main() -> int:
         max_cases=args.max_cases,
         consistency_repeats=args.consistency_repeats,
         stress_baseline=args.stress_baseline,
+        promote_candidate=args.promote_candidate,
     )
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
@@ -331,7 +357,7 @@ async def _async_main() -> int:
         f"(std {report['post_adaptation']['std_pass_rate']:.1%})"
     )
     print(
-        "Adaptation accepted: "
+        "Candidate promoted: "
         f"{report['adaptation']['accepted']} | "
         f"Prompt changed: {report['delta']['active_prompt_changed']}"
     )

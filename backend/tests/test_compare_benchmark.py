@@ -177,6 +177,56 @@ async def test_run_compare_benchmark_includes_sdk_hardening_and_calibration(monk
     assert "evaluator_isolation" in report["hardening"]["hardening_checks"]
 
 
+async def test_compare_benchmark_reports_evaluation_without_implicit_promotion(monkeypatch):
+    import app.benchmarks.compare as compare
+
+    observed: dict[str, object] = {}
+
+    async def fake_direct_llm_benchmark(**kwargs):
+        return _summary("direct_llm", ["pass"])
+
+    async def fake_tool_agent_benchmark(*, system_name, **kwargs):
+        return _summary(system_name, ["pass"])
+
+    async def fake_sdk_tool_baseline(**kwargs):
+        return _summary("sdk_tool_agent", ["pass"])
+
+    async def fake_adaptive_agent_benchmark(**kwargs):
+        observed.update(kwargs)
+        summary = _summary("adaptive_agent", ["pass"])
+        summary.metadata.update(
+            {
+                "candidate_evaluated": True,
+                "promoted": False,
+                "accepted": False,
+                "adapted": False,
+            }
+        )
+        return summary, {"initial": {}, "cycles": []}
+
+    monkeypatch.setattr(compare, "train_cases", lambda *args, **kwargs: [])
+    monkeypatch.setattr(compare, "eval_cases", lambda *args, **kwargs: [])
+    monkeypatch.setattr(compare, "run_direct_llm_benchmark", fake_direct_llm_benchmark)
+    monkeypatch.setattr(compare, "run_tool_agent_benchmark", fake_tool_agent_benchmark)
+    monkeypatch.setattr(compare, "run_sdk_tool_baseline", fake_sdk_tool_baseline)
+    monkeypatch.setattr(compare, "run_adaptive_agent_benchmark", fake_adaptive_agent_benchmark)
+
+    report = await run_compare_benchmark(
+        repeats=1,
+        promote_candidate=False,
+        include_harness_checks=False,
+        include_judge_calibration=False,
+    )
+
+    adaptive = next(item for item in report["systems"] if item["system"] == "adaptive_agent")
+    assert observed["promote_candidate"] is False
+    assert report["config"]["promote_candidate"] is False
+    metadata = adaptive["runs"][0]["metadata"]
+    assert metadata["candidate_evaluated"] is True
+    assert metadata["promoted"] is False
+    assert metadata["accepted"] is False
+
+
 def test_compare_eval_suite_has_expanded_diverse_coverage():
     from app.benchmarks.compare_suite import eval_cases
 

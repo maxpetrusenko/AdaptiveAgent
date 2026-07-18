@@ -8,7 +8,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
 
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages import ToolMessage
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
@@ -16,8 +16,21 @@ from app.adapt.loop import create_adaptation_run, run_adaptation_loop
 from app.agent.graph import run_agent
 from app.agent.tools import calculator, current_time
 from app.benchmarks.compare_metrics import bootstrap_ci
+from app.benchmarks.compare_runner_utils import (
+    case_messages,
+    extract_usage,
+    langchain_messages,
+    merge_usage,
+)
 from app.benchmarks.compare_suite import BenchmarkCase
 from app.benchmarks.compare_types import CaseResult, SystemSummary
+from app.benchmarks.promotion import (
+    candidate_for_run,
+    candidate_report,
+)
+from app.benchmarks.promotion import (
+    promote_candidate as promote_persisted_candidate,
+)
 from app.config import settings
 from app.eval.checks import check_deterministic, check_hallucination, check_pass_fail
 from app.llm import build_chat_model, estimate_usage_from_messages
@@ -25,58 +38,6 @@ from app.models import Base, EvalCase, PromptVersion
 
 TOOLS = [calculator, current_time]
 TOOL_BY_NAME = {tool.name: tool for tool in TOOLS}
-
-
-def extract_usage(payload: Any) -> dict[str, Any] | None:
-    if isinstance(payload, dict):
-        usage = payload.get("usage")
-        if isinstance(usage, dict):
-            return {
-                key: value
-                for key, value in usage.items()
-                if isinstance(value, (int, float))
-            }
-        return None
-
-    for attr_name in ("usage", "usage_metadata", "response_metadata"):
-        value = getattr(payload, attr_name, None)
-        if isinstance(value, dict):
-            usage = value.get("token_usage") if attr_name == "response_metadata" else value
-            if isinstance(usage, dict):
-                return {
-                    key: value
-                    for key, value in usage.items()
-                    if isinstance(value, (int, float))
-                }
-    return None
-
-
-def merge_usage(current: dict[str, float], usage: dict[str, Any] | None) -> None:
-    if not usage:
-        return
-    for key, value in usage.items():
-        if isinstance(value, (int, float)):
-            current[key] = current.get(key, 0.0) + float(value)
-
-
-def case_messages(case: BenchmarkCase) -> list[dict[str, str]]:
-    return [{"role": role, "content": content} for role, content in case.messages]
-
-
-def langchain_messages(
-    case: BenchmarkCase,
-    *,
-    system_prompt: str,
-) -> list[SystemMessage | HumanMessage | AIMessage]:
-    messages: list[SystemMessage | HumanMessage | AIMessage] = [
-        SystemMessage(content=system_prompt)
-    ]
-    for role, content in case.messages:
-        if role == "assistant":
-            messages.append(AIMessage(content=content))
-        else:
-            messages.append(HumanMessage(content=content))
-    return messages
 
 
 async def evaluate_cases(cases: list[BenchmarkCase], runner) -> SystemSummary:
@@ -229,13 +190,30 @@ async def seed_cases(
             change_reason="Benchmark seed prompt",
         )
     )
-    for case in train_cases + eval_cases:
+    for case in train_cases:
+        tags = [tag for tag in case.tags if tag not in {"validation", "protected"}]
+        if "training" not in tags:
+            tags.append("training")
         db.add(
             EvalCase(
                 name=case.name,
                 input=case.input,
                 expected_output=case.expected_output,
-                tags=list(case.tags),
+                tags=tags,
+                source="manual",
+            )
+        )
+    for case in eval_cases:
+        tags = [tag for tag in case.tags if tag not in {"training", "validation"}]
+        governed_tag = "protected" if "protected" in tags else "validation"
+        if governed_tag not in tags:
+            tags.append(governed_tag)
+        db.add(
+            EvalCase(
+                name=case.name,
+                input=case.input,
+                expected_output=case.expected_output,
+                tags=tags,
                 source="manual",
             )
         )
@@ -357,6 +335,7 @@ def cycle_snapshot(
     eval_summary: SystemSummary,
     initial_eval_rate: float,
     previous_eval_rate: float,
+    candidate: dict[str, object],
 ) -> dict[str, Any]:
     eval_rate = eval_summary.pass_rate
     protected_pass_rate = eval_summary.tag_pass_rates.get("protected", 1.0)
@@ -369,6 +348,7 @@ def cycle_snapshot(
         "cycle": cycle,
         "prompt_version": prompt_version,
         "accepted": accepted,
+        "candidate": candidate,
         "train_pass_rate_before": adapt_run_before,
         "train_pass_rate_after": adapt_run_after,
         "gain": {
@@ -402,6 +382,7 @@ async def run_adaptive_agent_benchmark(
     consistency_repeats: int,
     eval_cases_subset: list[BenchmarkCase],
     train_cases_subset: list[BenchmarkCase],
+    promote_candidate: bool = False,
 ) -> tuple[SystemSummary, dict[str, Any]]:
     with TemporaryDirectory(prefix="adaptive-agent-compare-") as tmpdir:
         db_path = Path(tmpdir) / "compare.db"
@@ -420,8 +401,6 @@ async def run_adaptive_agent_benchmark(
                 train_cases=train_cases_subset,
                 eval_cases=eval_cases_subset,
             )
-            train_db_cases = await load_cases(db, "train")
-
             prompt = (
                 await db.execute(select(PromptVersion).where(PromptVersion.is_active.is_(True)))
             ).scalar_one()
@@ -452,16 +431,22 @@ async def run_adaptive_agent_benchmark(
             active_prompt = prompt
             final_eval = initial_eval
             last_adapt_run: Any = None
+            last_candidate: dict[str, object] | None = None
 
             for cycle in range(1, adaptation_cycles + 1):
                 adapt_run = await create_adaptation_run(db)
                 adapt_run = await run_adaptation_loop(
                     db,
                     adapt_run.id,
-                    case_ids=[case.id for case in train_db_cases],
                     consistency_repeats=consistency_repeats,
                 )
                 last_adapt_run = adapt_run
+                candidate = await candidate_for_run(db, adapt_run.id)
+                promoted = False
+                if promote_candidate:
+                    promoted = await promote_persisted_candidate(db, candidate)
+                    await db.refresh(adapt_run)
+                last_candidate = candidate_report(candidate, promoted=promoted)
                 active_prompt = (
                     await db.execute(select(PromptVersion).where(PromptVersion.is_active.is_(True)))
                 ).scalar_one()
@@ -473,12 +458,13 @@ async def run_adaptive_agent_benchmark(
                     cycle_snapshot(
                         cycle=cycle,
                         prompt_version=active_prompt.version,
-                        accepted=bool(adapt_run.accepted),
+                        accepted=promoted,
                         adapt_run_before=float(adapt_run.before_pass_rate or 0.0),
                         adapt_run_after=float(adapt_run.after_pass_rate or 0.0),
                         eval_summary=final_eval,
                         initial_eval_rate=initial_eval.pass_rate,
                         previous_eval_rate=previous_eval_rate,
+                        candidate=last_candidate,
                     )
                 )
                 previous_eval_rate = final_eval.pass_rate
@@ -487,8 +473,11 @@ async def run_adaptive_agent_benchmark(
             summary.system = "adaptive_agent"
             summary.metadata = {
                 **summary.metadata,
-                "adapted": True,
-                "accepted": bool(last_adapt_run.accepted) if last_adapt_run is not None else False,
+                "adapted": bool(last_candidate and last_candidate["promoted"]),
+                "accepted": bool(last_candidate and last_candidate["promoted"]),
+                "candidate_evaluated": last_candidate is not None,
+                "promoted": bool(last_candidate and last_candidate["promoted"]),
+                "candidate": last_candidate,
                 "before_pass_rate": (
                     float(last_adapt_run.before_pass_rate or 0.0) if last_adapt_run else 0.0
                 ),

@@ -6,9 +6,13 @@ from app.models import Base
 
 
 @pytest.fixture(autouse=True)
-async def setup_db(monkeypatch):
+async def setup_db(monkeypatch, tmp_path):
     """Create a fresh in-memory database for each test."""
-    test_engine = create_async_engine("sqlite+aiosqlite://", echo=False)
+    database_path = tmp_path / "test.db"
+    test_engine = create_async_engine(
+        f"sqlite+aiosqlite:///{database_path}",
+        echo=False,
+    )
     test_session_factory = async_sessionmaker(
         test_engine, class_=AsyncSession, expire_on_commit=False
     )

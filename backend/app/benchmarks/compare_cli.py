@@ -33,6 +33,7 @@ def _build_running_report(
     eval_cases_subset: list[Any],
     include_judge_calibration: bool,
     include_harness_checks: bool,
+    promote_candidate: bool,
 ) -> dict[str, Any]:
     return {
         "status": "running",
@@ -49,6 +50,7 @@ def _build_running_report(
             "eval_case_count": len(eval_cases_subset),
             "include_judge_calibration": include_judge_calibration,
             "include_harness_checks": include_harness_checks,
+            "promote_candidate": promote_candidate,
         },
         "progress": {
             "completed_steps": [],
@@ -97,6 +99,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Optional eval-split subset size",
     )
     parser.add_argument(
+        "--promote-candidate",
+        action="store_true",
+        help="Explicitly promote eligible adaptive-agent candidates",
+    )
+    parser.add_argument(
         "--skip-judge-calibration",
         action="store_true",
         help="Skip the labeled judge calibration pass",
@@ -129,6 +136,7 @@ async def _async_main() -> int:
         eval_cases_subset=eval_cases_subset,
         include_judge_calibration=not args.skip_judge_calibration,
         include_harness_checks=not args.skip_harness_checks,
+        promote_candidate=args.promote_candidate,
     )
     _write_json(args.out, running_report)
 
@@ -149,6 +157,7 @@ async def _async_main() -> int:
             max_eval_cases=args.max_eval_cases,
             include_judge_calibration=not args.skip_judge_calibration,
             include_harness_checks=not args.skip_harness_checks,
+            promote_candidate=args.promote_candidate,
             progress_cb=progress_cb,
         )
     except BaseException as exc:

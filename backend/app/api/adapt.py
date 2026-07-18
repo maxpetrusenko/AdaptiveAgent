@@ -1,15 +1,33 @@
 """Adaptation endpoints."""
 
 from datetime import datetime, timezone
+from statistics import fmean
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    HTTPException,
+)
 from pydantic import BaseModel
 from sqlalchemy import select
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app import database
+from app.adapt.authority import (
+    CandidateAuthorityError,
+)
+from app.adapt.authority import (
+    promote_candidate as promote_candidate_with_authority,
+)
+from app.adapt.authority import (
+    rollback_candidate as rollback_candidate_with_authority,
+)
 from app.adapt.loop import create_adaptation_run, run_adaptation_loop
-from app.database import async_session, get_db
-from app.models import AdaptationRun, PromptVersion
+from app.api.operator_auth import require_operator
+from app.database import get_db
+from app.models import AdaptationRun, PromotionRecord, PromptVersion
 
 router = APIRouter(prefix="/api/adapt", tags=["adapt"])
 
@@ -44,6 +62,32 @@ class AdaptDetailResponse(BaseModel):
     run: AdaptRunResponse
     before_prompt: PromptVersionResponse
     after_prompt: PromptVersionResponse | None = None
+
+
+class CandidateEvaluationResult(BaseModel):
+    baseline: float
+    candidate: float
+
+
+class CandidateMutationResponse(BaseModel):
+    kind: str
+    target: str
+    summary: str
+
+
+class PromotionCandidateResponse(BaseModel):
+    id: str
+    title: str
+    status: str
+    parent_hash: str
+    candidate_hash: str
+    rationale: str
+    decision: str
+    results: dict[str, CandidateEvaluationResult]
+    lower_confidence_bound: float
+    latency_ratio: float
+    cost_ratio: float
+    mutations: list[CandidateMutationResponse]
 
 
 def _adapt_run_to_response(r: AdaptationRun) -> AdaptRunResponse:
@@ -115,7 +159,7 @@ async def get_adaptation_detail(run_id: str, db: AsyncSession = Depends(get_db))
 
 async def _run_adaptation_in_background(run_id: str):
     """Background task for adaptation loop."""
-    async with async_session() as db:
+    async with database.async_session() as db:
         try:
             await run_adaptation_loop(db, run_id)
         except Exception:
@@ -133,6 +177,7 @@ async def _run_adaptation_in_background(run_id: str):
 @router.post("/improve", response_model=AdaptRunResponse)
 async def trigger_improvement(
     background_tasks: BackgroundTasks,
+    _operator: None = Depends(require_operator),
     db: AsyncSession = Depends(get_db),
 ):
     """Trigger the self-improving adaptation loop."""
@@ -150,3 +195,97 @@ async def list_prompt_versions(db: AsyncSession = Depends(get_db)):
     )
     versions = result.scalars().all()
     return [_prompt_version_to_response(v) for v in versions]
+
+
+@router.get("/candidates", response_model=list[PromotionCandidateResponse])
+async def list_promotion_candidates(db: AsyncSession = Depends(get_db)):
+    records = (
+        await db.execute(
+            select(PromotionRecord).order_by(PromotionRecord.created_at.desc())
+        )
+    ).scalars().all()
+    return [_candidate_to_response(record) for record in records]
+
+
+@router.post(
+    "/candidates/{candidate_id}/promote",
+    response_model=PromotionCandidateResponse,
+)
+async def promote_candidate(
+    candidate_id: str,
+    _operator: None = Depends(require_operator),
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        record = await promote_candidate_with_authority(db, candidate_id)
+        return _candidate_to_response(record)
+    except CandidateAuthorityError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
+    except OperationalError as exc:
+        await db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Concurrent promotion is in progress",
+        ) from exc
+
+
+@router.post(
+    "/candidates/{candidate_id}/rollback",
+    response_model=PromotionCandidateResponse,
+)
+async def rollback_candidate(
+    candidate_id: str,
+    _operator: None = Depends(require_operator),
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        record = await rollback_candidate_with_authority(db, candidate_id)
+        return _candidate_to_response(record)
+    except CandidateAuthorityError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
+    except OperationalError as exc:
+        await db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Concurrent promotion is in progress",
+        ) from exc
+
+
+def _candidate_to_response(record: PromotionRecord) -> PromotionCandidateResponse:
+    raw_results = record.raw_results if isinstance(record.raw_results, dict) else {}
+    results = {
+        split: CandidateEvaluationResult(
+            baseline=_mean(result.get("baseline", [])),
+            candidate=_mean(result.get("candidate", [])),
+        )
+        for split, result in raw_results.items()
+    }
+    metrics = record.metrics if isinstance(record.metrics, dict) else {}
+    mutations = record.mutations if isinstance(record.mutations, list) else []
+    return PromotionCandidateResponse(
+        id=record.id,
+        title=f"Prompt candidate {record.candidate_hash[:8]}",
+        status=record.status,
+        parent_hash=record.parent_hash,
+        candidate_hash=record.candidate_hash,
+        rationale=record.rationale,
+        decision=record.decision_action,
+        results=results,
+        lower_confidence_bound=float(
+            metrics.get("lower_confidence_bound", 0.0)
+        ),
+        latency_ratio=float(metrics.get("latency_ratio", 0.0)),
+        cost_ratio=float(metrics.get("cost_ratio", 0.0)),
+        mutations=[
+            CandidateMutationResponse(
+                kind=str(mutation.get("kind", "")),
+                target=str(mutation.get("target", "")),
+                summary=str(mutation.get("summary", "")),
+            )
+            for mutation in mutations
+        ],
+    )
+
+
+def _mean(values: list[float]) -> float:
+    return fmean(values) if values else 0.0

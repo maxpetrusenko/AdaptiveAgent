@@ -21,8 +21,8 @@ export function AdaptationList({
     return (
       <div className="flex h-[200px] items-center justify-center rounded-lg border border-dashed border-border">
         <p className="text-sm text-muted-foreground">
-          No adaptation runs yet. Click &quot;Improve&quot; to start the
-          self-improving loop.
+          No adaptation runs yet. Evaluate a candidate to start the governed
+          improvement loop.
         </p>
       </div>
     );

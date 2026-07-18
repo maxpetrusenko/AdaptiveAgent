@@ -3,10 +3,11 @@
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.operator_auth import require_operator
 from app.database import async_session, get_db
 from app.eval.runner import run_eval_suite
 from app.models import EvalCase, EvalResult, EvalRun, PromptVersion
@@ -15,6 +16,8 @@ router = APIRouter(prefix="/api/evals", tags=["evals"])
 
 
 class EvalRunResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     prompt_version_id: str
     started_at: str
@@ -25,11 +28,9 @@ class EvalRunResponse(BaseModel):
     passed: int
     failed: int
 
-    class Config:
-        from_attributes = True
-
-
 class EvalResultResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     eval_run_id: str
     eval_case_id: str
@@ -38,10 +39,6 @@ class EvalResultResponse(BaseModel):
     score: float | None = None
     error: str | None = None
     latency_ms: int
-
-    class Config:
-        from_attributes = True
-
 
 def _run_to_response(r: EvalRun) -> EvalRunResponse:
     return EvalRunResponse(
@@ -110,7 +107,11 @@ async def _run_eval_in_background(run_id: str):
                 await db.commit()
 
 
-@router.post("/run", response_model=EvalRunResponse)
+@router.post(
+    "/run",
+    response_model=EvalRunResponse,
+    dependencies=[Depends(require_operator)],
+)
 async def trigger_eval_run(
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),

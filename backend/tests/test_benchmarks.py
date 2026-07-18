@@ -1,12 +1,18 @@
+from hashlib import sha256
+
 import pytest
 from sqlalchemy import select
 
 
-@pytest.mark.asyncio
-async def test_benchmark_report_smoke(monkeypatch):
-    from app.benchmarks.run import run_benchmark
+def _install_candidate_benchmark(monkeypatch, *, decision: str = "promote"):
     from app.database import async_session
-    from app.models import EvalCase, EvalRun, PromptVersion
+    from app.models import (
+        AdaptationRun,
+        EvalCase,
+        EvalRun,
+        PromotionRecord,
+        PromptVersion,
+    )
 
     async def fake_ensure_seed_state():
         async with async_session() as db:
@@ -23,7 +29,7 @@ async def test_benchmark_report_smoke(monkeypatch):
                     name="Case",
                     input="hi",
                     expected_output="hello",
-                    tags=["benchmark", "protected"],
+                    tags=["benchmark", "training"],
                     source="manual",
                 )
             )
@@ -34,12 +40,16 @@ async def test_benchmark_report_smoke(monkeypatch):
         eval_run_id=None,
         case_ids=None,
         consistency_repeats=2,
+        prompt_version_id=None,
     ):
-        prompt = (
-            await db.execute(
-                select(PromptVersion).where(PromptVersion.is_active == True)  # noqa: E712
-            )
-        ).scalar_one()
+        if prompt_version_id:
+            prompt = await db.get(PromptVersion, prompt_version_id)
+        else:
+            prompt = (
+                await db.execute(
+                    select(PromptVersion).where(PromptVersion.is_active == True)  # noqa: E712
+                )
+            ).scalar_one()
         run = EvalRun(
             id=eval_run_id,
             prompt_version_id=prompt.id,
@@ -68,11 +78,14 @@ async def test_benchmark_report_smoke(monkeypatch):
         return run
 
     async def fake_create_adaptation_run(db):
-        from app.models import AdaptationRun
-
+        active = (
+            await db.execute(
+                select(PromptVersion).where(PromptVersion.is_active == True)  # noqa: E712
+            )
+        ).scalar_one()
         run = AdaptationRun(
             status="running",
-            before_version_id="before",
+            before_version_id=active.id,
             before_pass_rate=1.0,
         )
         db.add(run)
@@ -86,31 +99,74 @@ async def test_benchmark_report_smoke(monkeypatch):
         case_ids=None,
         consistency_repeats=2,
     ):
-        from app.models import AdaptationRun
-
-        prompt = (
+        parent = (
             await db.execute(
                 select(PromptVersion).where(PromptVersion.is_active == True)  # noqa: E712
             )
         ).scalar_one()
-        prompt.is_active = False
-        db.add(
-            PromptVersion(
-                version=2,
-                content="Improved",
-                is_active=True,
-                parent_id=prompt.id,
-                change_reason="benchmark",
-            )
+        candidate = PromptVersion(
+            version=2,
+            content=f"Candidate {decision}",
+            is_active=False,
+            parent_id=parent.id,
+            change_reason="benchmark candidate",
         )
+        db.add(candidate)
+        await db.flush()
         run = (
             await db.execute(
                 select(AdaptationRun).where(AdaptationRun.id == run_id)
             )
         ).scalar_one()
-        run.accepted = True
+        run.accepted = False
         run.status = "completed"
+        run.after_version_id = candidate.id
         run.after_pass_rate = 1.0
+        db.add(
+            PromotionRecord(
+                adaptation_run_id=run.id,
+                parent_prompt_id=parent.id,
+                candidate_prompt_id=candidate.id,
+                parent_hash=sha256(parent.content.encode()).hexdigest(),
+                candidate_hash=sha256(candidate.content.encode()).hexdigest(),
+                dataset_hashes={
+                    "training": "train-hash",
+                    "validation": "validation-hash",
+                    "protected": "protected-hash",
+                },
+                raw_results={
+                    "training": {"baseline": [0.5], "candidate": [1.0]},
+                    "validation": {"baseline": [0.5, 0.5], "candidate": [1.0, 1.0]},
+                    "protected": {
+                        "baseline": [1.0],
+                        "candidate": [1.0 if decision == "promote" else 0.0],
+                    },
+                },
+                metrics={
+                    "validation_quality_delta": 0.5,
+                    "lower_confidence_bound": 0.5,
+                    "latency_ratio": 1.0,
+                    "cost_ratio": 1.0,
+                },
+                policy={"min_validation_delta": 0.05},
+                mutations=[
+                    {
+                        "kind": "prompt",
+                        "target": "system",
+                        "before": parent.content,
+                        "after": candidate.content,
+                        "summary": "Benchmark candidate",
+                    }
+                ],
+                decision_action=decision,
+                rationale=(
+                    "Validated candidate"
+                    if decision == "promote"
+                    else "Protected regression"
+                ),
+                status="ready" if decision == "promote" else "rejected",
+            )
+        )
         await db.commit()
         return run
 
@@ -129,6 +185,7 @@ async def test_benchmark_report_smoke(monkeypatch):
         )
 
     monkeypatch.setattr("app.benchmarks.run.ensure_seed_state", fake_ensure_seed_state)
+    monkeypatch.setattr("app.benchmarks.run.async_session", async_session)
     monkeypatch.setattr("app.benchmarks.run.run_eval_suite", fake_run_eval_suite)
     monkeypatch.setattr(
         "app.benchmarks.run.create_adaptation_run", fake_create_adaptation_run
@@ -138,12 +195,65 @@ async def test_benchmark_report_smoke(monkeypatch):
     )
     monkeypatch.setattr("app.benchmarks.run._summarize_run", fake_summarize_run)
 
+
+@pytest.mark.asyncio
+async def test_benchmark_evaluates_candidate_without_changing_active_prompt(monkeypatch):
+    from app.benchmarks.run import run_benchmark
+    from app.database import async_session
+    from app.models import PromptVersion
+
+    _install_candidate_benchmark(monkeypatch)
     report = await run_benchmark(repeats=2)
 
     assert report["baseline"]["mean_pass_rate"] == 1.0
     assert report["post_adaptation"]["mean_pass_rate"] == 1.0
+    assert report["adaptation"]["accepted"] is False
+    assert report["candidate"]["status"] == "ready"
+    assert report["candidate"]["decision"] == "promote"
+    assert report["candidate"]["id"]
+    assert report["candidate"]["parent_hash"]
+    assert report["candidate"]["candidate_hash"]
+    assert report["candidate"]["evaluated"] is True
+    assert report["candidate"]["promoted"] is False
+    assert report["delta"]["active_prompt_changed"] is False
+    assert {
+        run["prompt_version_id"] for run in report["post_adaptation"]["runs"]
+    } == {report["candidate"]["prompt_version_id"]}
+    async with async_session() as db:
+        active = (
+            await db.execute(
+                select(PromptVersion).where(PromptVersion.is_active == True)  # noqa: E712
+            )
+        ).scalar_one()
+    assert active.id == report["adaptation"]["before_version_id"]
+
+
+@pytest.mark.asyncio
+async def test_benchmark_explicitly_promotes_eligible_candidate(monkeypatch):
+    from app.benchmarks.run import run_benchmark
+
+    _install_candidate_benchmark(monkeypatch)
+    report = await run_benchmark(repeats=1, promote_candidate=True)
+
     assert report["adaptation"]["accepted"] is True
+    assert report["candidate"]["promoted"] is True
+    assert report["candidate"]["status"] == "promoted"
     assert report["delta"]["active_prompt_changed"] is True
+    assert report["final_prompt_version"] == 2
+
+
+@pytest.mark.asyncio
+async def test_benchmark_rejected_candidate_never_activates(monkeypatch):
+    from app.benchmarks.run import run_benchmark
+
+    _install_candidate_benchmark(monkeypatch, decision="reject")
+    report = await run_benchmark(repeats=1, promote_candidate=True)
+
+    assert report["adaptation"]["accepted"] is False
+    assert report["candidate"]["decision"] == "reject"
+    assert report["candidate"]["status"] == "rejected"
+    assert report["candidate"]["promoted"] is False
+    assert report["delta"]["active_prompt_changed"] is False
 
 
 @pytest.mark.asyncio

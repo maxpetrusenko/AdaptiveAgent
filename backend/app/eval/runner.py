@@ -21,11 +21,13 @@ async def run_eval_suite(
     eval_run_id: str | None = None,
     case_ids: list[str] | None = None,
     consistency_repeats: int = 2,
+    prompt_version_id: str | None = None,
 ) -> EvalRun:
     """Run all eval cases against the current agent and store results.
 
     If eval_run_id is provided, uses that existing run and pins to its prompt version.
-    Otherwise creates a new run using the active prompt.
+    Otherwise creates a new run using ``prompt_version_id`` when supplied, or
+    the active prompt. Explicit prompt selection never changes activation state.
     """
     # Get all eval cases
     cases_query = select(EvalCase)
@@ -50,6 +52,21 @@ async def run_eval_suite(
         prompt = prompt_result.scalar_one_or_none()
         if not prompt:
             raise ValueError(f"Prompt version {eval_run.prompt_version_id} not found")
+    elif prompt_version_id:
+        prompt_result = await db.execute(
+            select(PromptVersion).where(PromptVersion.id == prompt_version_id)
+        )
+        prompt = prompt_result.scalar_one_or_none()
+        if not prompt:
+            raise ValueError(f"Prompt version {prompt_version_id} not found")
+        eval_run = EvalRun(
+            prompt_version_id=prompt.id,
+            status="running",
+            total=len(cases),
+        )
+        db.add(eval_run)
+        await db.commit()
+        await db.refresh(eval_run)
     else:
         # New run - use active prompt
         prompt_result = await db.execute(
@@ -72,6 +89,7 @@ async def run_eval_suite(
 
     for case in cases:
         start_time = time.time()
+        token_count: int | None = None
 
         try:
             # Run agent with the pinned prompt version
@@ -82,6 +100,7 @@ async def run_eval_suite(
 
             actual_output = agent_result["content"]
             tool_results = agent_result.get("tool_results")
+            token_count = _total_tokens(agent_result)
             latency_ms = int((time.time() - start_time) * 1000)
 
             # Try deterministic checks first, fall back to LLM judge
@@ -123,6 +142,7 @@ async def run_eval_suite(
                         system_prompt=prompt.content,
                     )
                     extra_outputs.append(extra_result["content"])
+                    token_count += _total_tokens(extra_result)
                 if extra_outputs:
                     consistency_result = await check_consistency(
                         case.input, [actual_output, *extra_outputs]
@@ -148,9 +168,10 @@ async def run_eval_suite(
                 eval_case_id=case.id,
                 status=status,
                 actual_output=actual_output,
-                score=check_result["score"],
+                score=check_result["score"] if status == "pass" else 0.0,
                 error=error_msg,
                 latency_ms=latency_ms,
+                token_count=token_count,
             )
             db.add(eval_result)
 
@@ -165,6 +186,7 @@ async def run_eval_suite(
                 score=0.0,
                 error=str(e),
                 latency_ms=latency_ms,
+                token_count=token_count,
             )
             db.add(eval_result)
 
@@ -179,3 +201,18 @@ async def run_eval_suite(
     await db.refresh(eval_run)
 
     return eval_run
+
+
+def _total_tokens(agent_result: dict) -> int:
+    usage = agent_result.get("usage")
+    if not isinstance(usage, dict):
+        raise ValueError("Agent result is missing normalized token usage")
+    total = usage.get("total_tokens")
+    if total is None:
+        total = int(usage.get("prompt_tokens", 0)) + int(
+            usage.get("completion_tokens", 0)
+        )
+    total_tokens = int(total)
+    if total_tokens < 0:
+        raise ValueError("Agent token usage cannot be negative")
+    return total_tokens

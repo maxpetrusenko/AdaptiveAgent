@@ -33,3 +33,4 @@ htmlcov/
 dashboard.png
 test-results/
 assets/reference-style.png
+.gstack/

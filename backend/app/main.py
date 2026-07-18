@@ -8,6 +8,7 @@ from app.api.cases import router as cases_router
 from app.api.chat import router as chat_router
 from app.api.dashboard import router as dashboard_router
 from app.api.evals import router as evals_router
+from app.api.tasks import router as tasks_router
 from app.config import settings
 from app.database import async_session, init_db
 from app.seed import ensure_seed_eval_case_tags, seed_eval_cases, seed_prompt_v1
@@ -44,6 +45,7 @@ app.include_router(evals_router)
 app.include_router(cases_router)
 app.include_router(adapt_router)
 app.include_router(dashboard_router)
+app.include_router(tasks_router)
 
 
 @app.get("/health")

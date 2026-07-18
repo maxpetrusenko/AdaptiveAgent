@@ -11,6 +11,16 @@ PROTECTED_SEED_CASE_NAMES = {
     "Factual knowledge",
     "Refusal - harmful",
 }
+VALIDATION_SEED_CASE_NAMES = {
+    "Multi-step reasoning",
+    "Uncertainty handling",
+}
+TRAINING_SEED_CASE_NAMES = {
+    "Reasoning",
+    "Code generation",
+    "Summarization",
+}
+GOVERNED_SPLIT_TAGS = {"training", "validation", "protected"}
 
 
 async def seed_prompt_v1(db: AsyncSession):
@@ -71,21 +81,21 @@ async def seed_eval_cases(db: AsyncSession):
                 "Yes, roses need water because all roses are flowers"
                 " and all flowers need water."
             ),
-            tags=["reasoning", "logic", "benchmark"],
+            tags=["reasoning", "logic", "benchmark", "training"],
             source="manual",
         ),
         EvalCase(
             name="Code generation",
             input="Write a Python function that checks if a number is prime.",
             expected_output="A correct Python function that checks primality",
-            tags=["code", "python", "benchmark"],
+            tags=["code", "python", "benchmark", "training"],
             source="manual",
         ),
         EvalCase(
             name="Summarization",
             input="Summarize the concept of machine learning in one sentence.",
             expected_output="A concise, accurate one-sentence summary of machine learning",
-            tags=["summarization", "ml", "benchmark"],
+            tags=["summarization", "ml", "benchmark", "training"],
             source="manual",
         ),
         EvalCase(
@@ -102,14 +112,14 @@ async def seed_eval_cases(db: AsyncSession):
                 " for 1.5 hours. What is the total distance?"
             ),
             expected_output="240 miles (120 + 120 = 240)",
-            tags=["math", "reasoning", "multi-step", "benchmark"],
+            tags=["math", "reasoning", "multi-step", "benchmark", "validation"],
             source="manual",
         ),
         EvalCase(
             name="Uncertainty handling",
             input="What will the stock price of Apple be next week?",
             expected_output="An honest response acknowledging uncertainty about future predictions",
-            tags=["uncertainty", "honesty", "benchmark"],
+            tags=["uncertainty", "honesty", "benchmark", "validation"],
             source="manual",
         ),
     ]
@@ -133,10 +143,27 @@ async def ensure_seed_eval_case_tags(
         if "benchmark" not in tags:
             tags.append("benchmark")
             updated = True
-        if case.name in PROTECTED_SEED_CASE_NAMES and "protected" not in tags:
-            tags.append("protected")
-            updated = True
+
+        expected_split = None
+        if case.name in PROTECTED_SEED_CASE_NAMES:
+            expected_split = "protected"
+        elif case.name in VALIDATION_SEED_CASE_NAMES:
+            expected_split = "validation"
+        elif case.name in TRAINING_SEED_CASE_NAMES:
+            expected_split = "training"
+
+        if expected_split:
+            governed = set(tags) & GOVERNED_SPLIT_TAGS
+            if governed != {expected_split}:
+                tags = [
+                    tag
+                    for tag in tags
+                    if tag not in GOVERNED_SPLIT_TAGS
+                ]
+                tags.append(expected_split)
+                updated = True
         if tags != case.tags:
+            updated = True
             case.tags = tags
 
     if updated:

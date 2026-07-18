@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.operator_auth import require_operator
 from app.database import get_db
 from app.eval.schemas import EvalCaseCreate, EvalCaseResponse
 from app.models import EvalCase
@@ -30,7 +31,7 @@ async def list_cases(db: AsyncSession = Depends(get_db)):
     return [_case_to_response(c) for c in cases]
 
 
-@router.post("", response_model=EvalCaseResponse)
+@router.post("", response_model=EvalCaseResponse, dependencies=[Depends(require_operator)])
 async def create_case(req: EvalCaseCreate, db: AsyncSession = Depends(get_db)):
     case = EvalCase(
         name=req.name,
@@ -45,7 +46,7 @@ async def create_case(req: EvalCaseCreate, db: AsyncSession = Depends(get_db)):
     return _case_to_response(case)
 
 
-@router.delete("/{case_id}")
+@router.delete("/{case_id}", dependencies=[Depends(require_operator)])
 async def delete_case(case_id: str, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(EvalCase).where(EvalCase.id == case_id))
     case = result.scalar_one_or_none()

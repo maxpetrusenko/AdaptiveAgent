@@ -5,8 +5,31 @@ import re
 from datetime import datetime, timezone
 
 from langchain_core.messages import HumanMessage
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from app.llm import build_chat_model
+
+
+class _StrictJudgeResult(BaseModel):
+    model_config = ConfigDict(strict=True, extra="forbid")
+
+
+class _PassFailJudgeResult(_StrictJudgeResult):
+    passed: bool = Field(alias="pass")
+    score: float = Field(ge=0.0, le=1.0)
+    reason: str
+
+
+class _HallucinationJudgeResult(_StrictJudgeResult):
+    has_hallucination: bool
+    confidence: float = Field(ge=0.0, le=1.0)
+    details: str
+
+
+class _ConsistencyJudgeResult(_StrictJudgeResult):
+    consistent: bool
+    variance: float = Field(ge=0.0, le=1.0)
+    details: str
 
 
 def check_deterministic(
@@ -79,7 +102,8 @@ def _parse_json(content: str) -> dict | None:
     end = content.rfind("}") + 1
     if start >= 0 and end > start:
         try:
-            return json.loads(content[start:end])
+            result = json.loads(content[start:end])
+            return result if isinstance(result, dict) else None
         except json.JSONDecodeError:
             return None
     return None
@@ -198,7 +222,6 @@ async def check_pass_fail(
     actual_output: str,
 ) -> dict:
     """Use LLM-as-judge to check if actual output matches expected semantically."""
-    model = _get_judge_model()
     payload = _build_judge_payload(
         input=input_text,
         expected_output=expected_output,
@@ -218,19 +241,31 @@ async def check_pass_fail(
     )
 
     try:
+        model = _get_judge_model()
         response = await model.ainvoke([HumanMessage(content=judge_prompt)])
         content = response.content if isinstance(response.content, str) else str(response.content)
         result = _parse_json(content)
         if result:
+            parsed = _PassFailJudgeResult.model_validate(result)
             return {
-                "pass": bool(result.get("pass", False)),
-                "score": float(result.get("score", 0.0)),
-                "reason": str(result.get("reason", "")),
+                "pass": parsed.passed,
+                "score": parsed.score,
+                "reason": parsed.reason,
             }
+    except ValidationError:
+        return {
+            "pass": False,
+            "score": 0.0,
+            "reason": "Could not parse or validate judge response",
+        }
     except Exception as e:
         return {"pass": False, "score": 0.0, "reason": f"Judge error: {e}"}
 
-    return {"pass": False, "score": 0.0, "reason": "Could not parse judge response"}
+    return {
+        "pass": False,
+        "score": 0.0,
+        "reason": "Could not parse or validate judge response",
+    }
 
 
 async def check_hallucination(
@@ -249,7 +284,6 @@ async def check_hallucination(
     if grounded is not None:
         return grounded
 
-    model = _get_judge_model()
     tool_evidence = []
     if tool_results:
         tool_evidence = [
@@ -277,19 +311,23 @@ async def check_hallucination(
     )
 
     try:
+        model = _get_judge_model()
         response = await model.ainvoke([HumanMessage(content=judge_prompt)])
         content = response.content if isinstance(response.content, str) else str(response.content)
         result = _parse_json(content)
         if result:
+            parsed = _HallucinationJudgeResult.model_validate(result)
             return {
-                "has_hallucination": bool(result.get("has_hallucination", False)),
-                "confidence": float(result.get("confidence", 0.0)),
-                "details": str(result.get("details", "")),
+                "has_hallucination": parsed.has_hallucination,
+                "confidence": parsed.confidence,
+                "details": parsed.details,
             }
+    except ValidationError:
+        return _hallucination_error("Could not parse or validate response")
     except Exception as e:
-        return {"has_hallucination": False, "confidence": 0.0, "details": f"Check error: {e}"}
+        return _hallucination_error(f"Check error: {e}")
 
-    return {"has_hallucination": False, "confidence": 0.0, "details": "Could not parse response"}
+    return _hallucination_error("Could not parse or validate response")
 
 
 async def check_consistency(
@@ -299,8 +337,6 @@ async def check_consistency(
     """Check consistency across multiple runs of the same input."""
     if len(outputs) < 2:
         return {"consistent": True, "variance": 0.0, "details": "Need multiple outputs to check"}
-
-    model = _get_judge_model()
 
     outputs_text = "\n---\n".join([f"Response {i + 1}: {o}" for i, o in enumerate(outputs)])
 
@@ -314,16 +350,38 @@ async def check_consistency(
     )
 
     try:
+        model = _get_judge_model()
         response = await model.ainvoke([HumanMessage(content=judge_prompt)])
         content = response.content if isinstance(response.content, str) else str(response.content)
         result = _parse_json(content)
         if result:
+            parsed = _ConsistencyJudgeResult.model_validate(result)
             return {
-                "consistent": bool(result.get("consistent", True)),
-                "variance": float(result.get("variance", 0.0)),
-                "details": str(result.get("details", "")),
+                "consistent": parsed.consistent,
+                "variance": parsed.variance,
+                "details": parsed.details,
             }
+    except ValidationError:
+        return _consistency_error("Could not parse or validate response")
     except Exception as e:
-        return {"consistent": True, "variance": 0.0, "details": f"Check error: {e}"}
+        return _consistency_error(f"Check error: {e}")
 
-    return {"consistent": True, "variance": 0.0, "details": "Could not parse response"}
+    return _consistency_error("Could not parse or validate response")
+
+
+def _hallucination_error(detail: str) -> dict:
+    return {
+        "has_hallucination": True,
+        "confidence": 1.0,
+        "details": detail,
+        "error": detail,
+    }
+
+
+def _consistency_error(detail: str) -> dict:
+    return {
+        "consistent": False,
+        "variance": 1.0,
+        "details": detail,
+        "error": detail,
+    }

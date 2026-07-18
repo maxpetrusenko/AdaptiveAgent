@@ -156,7 +156,7 @@ async def create_prompt_version(
     """Create a new prompt version in the database."""
     # Get next version number
     result = await db.execute(
-        select(PromptVersion).order_by(PromptVersion.version.desc())
+        select(PromptVersion).order_by(PromptVersion.version.desc()).limit(1)
     )
     latest = result.scalar_one_or_none()
     next_version = (latest.version + 1) if latest else 1
