@@ -1,0 +1,63 @@
+{
+  "commit": "baffed297787cbd1e3b637c3ea214b2455c18b0b",
+  "comparison": {
+    "p50_speedup": 22.578316249559393,
+    "throughput_speedup": 21.908102591175442
+  },
+  "corpus": {
+    "chunk_count": 10000,
+    "dimensions": 128,
+    "embedding_fingerprint": "benchmark-fixture-v1-128d-seed-20260718",
+    "index_version": "benchmark-index-v1",
+    "sha256": "6227cffbda13b230113f9efdc3309f59e1933e09ef5d3bc7589cd99620d0e51f",
+    "tenant_count": 1
+  },
+  "fixture": {
+    "query": "shared durable checkpoint evidence",
+    "query_count": 5,
+    "seed": 20260718,
+    "top_k": 10
+  },
+  "machine": {
+    "arch": "arm64",
+    "cpu_count": 10,
+    "os": "macOS-15.5-arm64-arm-64bit",
+    "processor": "arm",
+    "python": "3.11.8"
+  },
+  "methodology": {
+    "clock": "time.perf_counter_ns",
+    "order": "python_oracle_then_rust_native",
+    "timed_iterations": 10,
+    "warmups": 3
+  },
+  "parity": {
+    "passed": true,
+    "queries": 5,
+    "ranked_hits_compared": 50
+  },
+  "python_oracle": {
+    "p50_ms": 160.136708,
+    "p95_ms": 165.269541,
+    "p99_ms": 173.491458,
+    "samples": 50,
+    "throughput_qps": 6.241859120002024
+  },
+  "rust_native": {
+    "p50_ms": 7.0925,
+    "p95_ms": 8.945209,
+    "p99_ms": 9.25,
+    "samples": 50,
+    "throughput_qps": 136.7472899606684
+  },
+  "schema_version": 1,
+  "source_state": {
+    "dirty": false,
+    "head": "baffed297787cbd1e3b637c3ea214b2455c18b0b"
+  },
+  "toolchain": {
+    "native_build": "PyO3 ABI3 release wheel via uv/maturin",
+    "rayon_threads": "automatic",
+    "rustc": "rustc 1.97.1 (8bab26f4f 2026-07-14)"
+  }
+}

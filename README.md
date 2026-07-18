@@ -62,8 +62,8 @@ synthesis and verification over the tenant's native retrieval results.
 | Production tooling | FastAPI, Next.js, Langfuse redaction, health/recovery, Docker, CI, and real Playwright |
 
 Measured locally on an Apple arm64 machine, the reproducible 10,000-chunk,
-128-dimension fixture produced an 8.06 ms Rust p50 versus 161.07 ms for the
-Python oracle, a 19.97× p50 speedup. Treat this as a machine-specific engineering
+128-dimension fixture produced a 7.09 ms Rust p50 versus 160.14 ms for the
+Python oracle, a 22.58× p50 speedup. Treat this as a machine-specific engineering
 measurement, not a universal product benchmark. See the
 [benchmark artifact](docs/proof/retrieval-benchmark.json) and
 [TDD ledger](docs/proof/tdd-red-green.md).
