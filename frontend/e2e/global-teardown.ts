@@ -15,6 +15,16 @@ export default function globalTeardown() {
   }
 
   const result = spawnSync("trash", databaseFiles, { stdio: "inherit" });
+  if (
+    result.error &&
+    "code" in result.error &&
+    result.error.code === "ENOENT" &&
+    process.env.CI === "true"
+  ) {
+    // GitHub's ephemeral workspace is discarded after the job. Keep local
+    // cleanup Trash-only while allowing the same suite to run on Ubuntu.
+    return;
+  }
   if (result.status !== 0) {
     throw new Error("Could not safely trash the isolated Playwright database.");
   }
