@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import TasksPage from "@/app/tasks/page";
 import { operatorApi } from "@/lib/operator-api";
+import type { OperatorTask } from "@/lib/operator-types";
 
 vi.mock("@/lib/operator-api", () => ({
   operatorApi: {
@@ -16,7 +17,7 @@ vi.mock("@/lib/operator-api", () => ({
 
 const api = vi.mocked(operatorApi);
 
-const task = {
+const task: OperatorTask = {
   id: "task-page",
   goal: "Persist operator state",
   constraints: [],

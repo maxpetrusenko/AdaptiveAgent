@@ -5,6 +5,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { MessageBubble } from "./message-bubble";
 import type { Message } from "@/lib/types";
 
+const STREAMING_MESSAGE_TIMESTAMP = "1970-01-01T00:00:00.000Z";
+
 interface MessageListProps {
   messages: Message[];
   streamingContent?: string;
@@ -30,7 +32,7 @@ export function MessageList({ messages, streamingContent }: MessageListProps) {
               session_id: "",
               role: "assistant",
               content: streamingContent,
-              created_at: new Date().toISOString(),
+              created_at: STREAMING_MESSAGE_TIMESTAMP,
             }}
             isStreaming
           />

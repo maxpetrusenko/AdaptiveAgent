@@ -1,0 +1,105 @@
+name: adaptive-agent
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: backend-runtime
+    init: true
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: sqlite+aiosqlite:////data/sqlite/adaptive_agent.db
+      RESEARCH_DATABASE_PATH: /data/sqlite/research.db
+      RESEARCH_PROOF_MODE: ${RESEARCH_PROOF_MODE:-true}
+      KNOWLEDGE_INDEX_PATH: /data/index
+      KNOWLEDGE_EMBEDDING_PROVIDER: ${KNOWLEDGE_EMBEDDING_PROVIDER:-deterministic}
+      KNOWLEDGE_EMBEDDING_BASE_URL: ${KNOWLEDGE_EMBEDDING_BASE_URL:-https://api.openai.com/v1}
+      KNOWLEDGE_EMBEDDING_MODEL: ${KNOWLEDGE_EMBEDDING_MODEL:-text-embedding-3-small}
+      KNOWLEDGE_EMBEDDING_DIMENSIONS: ${KNOWLEDGE_EMBEDDING_DIMENSIONS:-768}
+      MODEL_PROVIDER: ${MODEL_PROVIDER:-anthropic}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      GEMMA4_API_KEY: ${GEMMA4_API_KEY:-}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma4}
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+      LANGFUSE_BASE_URL: ${LANGFUSE_BASE_URL:-https://cloud.langfuse.com}
+      OPERATOR_API_TOKEN: ${OPERATOR_API_TOKEN:?Set OPERATOR_API_TOKEN for the proof proxy}
+      CORS_ORIGINS: '${CORS_ORIGINS:-["http://localhost:3737"]}'
+    ports:
+      - "127.0.0.1:${BACKEND_PORT:-8000}:8000"
+    volumes:
+      - backend-sqlite:/data/sqlite
+      - retrieval-index:/data/index
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "curl",
+          "--fail",
+          "--silent",
+          "--show-error",
+          "http://127.0.0.1:8000/health",
+        ]
+      interval: 10s
+      timeout: 3s
+      start_period: 20s
+      retries: 5
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: frontend-runtime
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+    init: true
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+      BACKEND_INTERNAL_URL: http://backend:8000
+      OPERATOR_API_TOKEN: ${OPERATOR_API_TOKEN:?Set OPERATOR_API_TOKEN for the proof proxy}
+      OPERATOR_PROXY_MODE: local
+      PROOF_PROXY_MODE: local
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-3737}:3737"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "curl",
+          "--fail",
+          "--silent",
+          "--show-error",
+          "http://127.0.0.1:3737/",
+        ]
+      interval: 10s
+      timeout: 3s
+      start_period: 20s
+      retries: 5
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+      - /app/frontend/.next/cache:size=64m,uid=1000,gid=1000
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  backend-sqlite:
+  retrieval-index:

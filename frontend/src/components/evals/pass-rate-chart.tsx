@@ -11,18 +11,22 @@ import {
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { EvalRun } from "@/lib/types";
+import { formatDate } from "@/lib/date-format";
 
 interface PassRateChartProps {
   runs: EvalRun[];
 }
 
 export function PassRateChart({ runs }: PassRateChartProps) {
-  const data = runs
-    .filter((r) => r.status === "completed" && r.pass_rate != null)
-    .map((r) => ({
-      date: new Date(r.started_at).toLocaleDateString(),
-      passRate: Math.round((r.pass_rate ?? 0) * 100),
-    }));
+  const data = runs.reduce<{ date: string; passRate: number }[]>((result, run) => {
+    if (run.status === "completed" && run.pass_rate != null) {
+      result.push({
+        date: formatDate(run.started_at),
+        passRate: Math.round(run.pass_rate * 100),
+      });
+    }
+    return result;
+  }, []);
 
   if (data.length === 0) {
     return (

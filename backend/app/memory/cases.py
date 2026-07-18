@@ -2,11 +2,10 @@
 
 import json
 
-from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
+from app.llm import build_chat_model
 from app.models import EvalCase
 
 
@@ -15,11 +14,7 @@ async def failure_to_eval_case(
     failure: dict,
 ) -> EvalCase:
     """Convert a failure into a new eval test case using LLM."""
-    model = ChatAnthropic(
-        model="claude-haiku-4-5-20251001",
-        api_key=settings.anthropic_api_key,
-        max_tokens=500,
-    )
+    model = build_chat_model(purpose="judge", streaming=False)
 
     prompt = (
         "Given this agent failure, generate a clear test case.\n\n"

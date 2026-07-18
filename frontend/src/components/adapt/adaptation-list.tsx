@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { ArrowRight, Check, X } from "lucide-react";
 import type { AdaptationRun } from "@/lib/types";
+import { formatDateTime } from "@/lib/date-format";
 
 interface AdaptationListProps {
   runs: AdaptationRun[];
@@ -67,7 +68,7 @@ export function AdaptationList({
                   ) : null}
                 </div>
                 <span className="text-xs text-muted-foreground">
-                  {new Date(run.started_at).toLocaleString()}
+                  {formatDateTime(run.started_at)}
                 </span>
               </div>
               <div className="flex items-center gap-2 text-sm">

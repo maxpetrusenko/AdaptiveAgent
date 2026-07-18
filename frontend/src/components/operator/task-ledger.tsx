@@ -9,6 +9,7 @@ import {
   Play,
   Square,
 } from "lucide-react";
+import { formatDateTime } from "@/lib/date-format";
 import { useCallback, useState } from "react";
 
 import { ConfirmationDialog } from "@/components/operator/confirmation-dialog";
@@ -158,7 +159,7 @@ export function TaskLedger({
                 {selected.goal}
               </h3>
               <p className="mt-2 text-xs text-muted-foreground">
-                Updated {new Date(selected.updated_at).toLocaleString()}
+                Updated {formatDateTime(selected.updated_at)}
               </p>
             </div>
             {canOperate && (

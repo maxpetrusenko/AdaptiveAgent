@@ -1,13 +1,21 @@
 import { existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 
-import { e2eDatabasePath } from "./database";
+import {
+  e2eDatabasePath,
+  e2eKnowledgeIndexPath,
+  e2eResearchDatabasePath,
+} from "./database";
 
 export default function globalTeardown() {
   const databaseFiles = [
     e2eDatabasePath,
     `${e2eDatabasePath}-shm`,
     `${e2eDatabasePath}-wal`,
+    e2eResearchDatabasePath,
+    `${e2eResearchDatabasePath}-shm`,
+    `${e2eResearchDatabasePath}-wal`,
+    e2eKnowledgeIndexPath,
   ].filter(existsSync);
 
   if (databaseFiles.length === 0) {

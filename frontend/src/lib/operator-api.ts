@@ -17,9 +17,10 @@ export class OperatorApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const url = path.startsWith("/api/operator") ? path : `${API_BASE}${path}`;
   const response = init
-    ? await fetch(`${API_BASE}${path}`, init)
-    : await fetch(`${API_BASE}${path}`);
+    ? await fetch(url, init)
+    : await fetch(url);
   if (!response.ok) {
     const detail = await response.text();
     throw new OperatorApiError(
@@ -31,7 +32,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 const post = <T>(path: string) =>
-  request<T>(path, {
+  request<T>(`/api/operator${path.replace(/^\/api/, "")}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
   });

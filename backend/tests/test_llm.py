@@ -1,10 +1,37 @@
+import sys
+from types import ModuleType
+
 from langchain_core.messages import HumanMessage
 
+import app.llm as llm_module
 from app.llm import (
     _normalize_openai_compat_base_url,
     _ollama_tags_url,
     estimate_usage_from_messages,
 )
+
+
+def test_build_chat_model_attaches_observability_callbacks(monkeypatch):
+    captured: dict[str, object] = {}
+
+    class FakeChatOpenAI:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+    fake_module = ModuleType("langchain_openai")
+    fake_module.ChatOpenAI = FakeChatOpenAI  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "langchain_openai", fake_module)
+    monkeypatch.setattr(llm_module, "get_provider", lambda: "openai")
+    monkeypatch.setattr(
+        llm_module,
+        "langchain_callbacks",
+        lambda _settings: ["trace-handler"],
+        raising=False,
+    )
+
+    llm_module.build_chat_model(purpose="agent")
+
+    assert captured["callbacks"] == ["trace-handler"]
 
 
 def test_normalize_openai_compat_base_url_accepts_full_chat_completions_url():

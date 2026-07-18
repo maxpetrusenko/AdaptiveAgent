@@ -1,36 +1,37 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Adaptive Agent Frontend
 
-## Getting Started
+Next.js 16 operator and proof interface for AdaptiveAgent.
 
-First, run the development server:
+## Run locally
+
+Start the FastAPI backend first, then:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+pnpm install --frozen-lockfile
+PROOF_PROXY_MODE=local \
+OPERATOR_PROXY_MODE=local \
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open <http://localhost:3737/proof>.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+The proof page uses the same-origin `/api/proof/*` server route. That route
+forwards only the knowledge and research proof contracts to
+`BACKEND_INTERNAL_URL` and adds `OPERATOR_API_TOKEN` on the server. Never expose
+that token through a `NEXT_PUBLIC_*` variable.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The local proxy modes reject non-loopback and cross-origin requests. Do not
+enable them on an internet-facing deployment; use authenticated server sessions
+or keep protected mutations backend-only.
 
-## Learn More
+## Gates
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+pnpm test
+pnpm lint
+pnpm build
+pnpm e2e
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+See the [project README](../README.md) for architecture, backend setup, native
+Rust gates, benchmark evidence, and deployment.

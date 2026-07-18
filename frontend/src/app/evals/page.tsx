@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Play, Loader2 } from "lucide-react";
 import { EvalRunList } from "@/components/evals/eval-run-list";
@@ -15,6 +15,7 @@ export default function EvalsPage() {
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [results, setResults] = useState<EvalResult[]>([]);
   const [isRunning, setIsRunning] = useState(false);
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const loadRuns = useCallback(async () => {
     try {
@@ -27,6 +28,15 @@ export default function EvalsPage() {
       console.error("Load runs error:", err);
     }
   }, []);
+
+  useEffect(
+    () => () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
+    },
+    []
+  );
 
   const loadResults = useCallback(async (runId: string) => {
     try {
@@ -72,23 +82,25 @@ export default function EvalsPage() {
   const handleRunEval = async () => {
     setIsRunning(true);
     try {
-      const res = await fetch(`${API_BASE}/api/evals/run`, { method: "POST" });
+      const res = await fetch("/api/operator/evals/run", { method: "POST" });
       if (res.ok) {
         const data = await res.json();
-        const pollInterval = setInterval(async () => {
+        pollIntervalRef.current = setInterval(async () => {
           try {
             const statusRes = await fetch(`${API_BASE}/api/evals/runs/${data.id}`);
             if (statusRes.ok) {
               const statusData = await statusRes.json();
               if (statusData.status === "completed" || statusData.status === "failed") {
-                clearInterval(pollInterval);
+                clearInterval(pollIntervalRef.current ?? undefined);
+                pollIntervalRef.current = null;
                 setIsRunning(false);
                 await loadRuns();
                 handleSelectRun(data.id);
               }
             }
           } catch {
-            clearInterval(pollInterval);
+            clearInterval(pollIntervalRef.current ?? undefined);
+            pollIntervalRef.current = null;
             setIsRunning(false);
           }
         }, 2000);

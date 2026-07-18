@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+import { e2eBackendUrl } from "./database";
+
 const task = {
   id: "task-1",
   goal: "Ship a verified adaptive runtime",
@@ -73,7 +75,7 @@ test.beforeEach(async ({ page }) => {
   await page.route("**/api/tasks", (route) =>
     route.fulfill({ json: [task] })
   );
-  await page.route("**/api/tasks/task-1/*", async (route) => {
+  await page.route("**/api/operator/tasks/task-1/*", async (route) => {
     const action = route.request().url().split("/").at(-1);
     await route.fulfill({
       json: { ...task, status: action === "pause" ? "paused" : task.status },
@@ -82,7 +84,7 @@ test.beforeEach(async ({ page }) => {
   await page.route("**/api/adapt/candidates", (route) =>
     route.fulfill({ json: [candidate] })
   );
-  await page.route("**/api/adapt/candidates/cand-8f2a/promote", (route) =>
+  await page.route("**/api/operator/adapt/candidates/cand-8f2a/promote", (route) =>
     route.fulfill({ json: { ...candidate, status: "promoted" } })
   );
 });
@@ -134,7 +136,8 @@ test("real task API lifecycle persists across refreshes", async ({
   request,
 }) => {
   const goal = `E2E durable task ${Date.now()}`;
-  const created = await request.post("http://127.0.0.1:8000/api/tasks", {
+  const created = await request.post(`${e2eBackendUrl}/api/tasks`, {
+    headers: { "x-operator-token": "e2e-local-operator-token" },
     data: {
       goal,
       constraints: ["Do not skip proof"],
@@ -171,7 +174,7 @@ test("real promotion governance persists activation and rollback", async ({
   request,
 }) => {
   const response = await request.get(
-    "http://127.0.0.1:8000/api/adapt/candidates"
+    `${e2eBackendUrl}/api/adapt/candidates`
   );
   expect(response.ok()).toBe(true);
   const candidates = await response.json();
@@ -212,6 +215,7 @@ test("real promotion governance persists activation and rollback", async ({
     `restore parent ${ready.parent_hash}`
   );
   await page.getByRole("button", { name: "Confirm rollback" }).click();
+  await expect(page.getByText("Rolled back")).toBeVisible();
 
   await page.reload();
   await page
@@ -220,7 +224,7 @@ test("real promotion governance persists activation and rollback", async ({
   await expect(page.getByText("Rolled back")).toBeVisible();
 
   const promptsResponse = await request.get(
-    "http://127.0.0.1:8000/api/adapt/prompts"
+    `${e2eBackendUrl}/api/adapt/prompts`
   );
   expect(promptsResponse.ok()).toBe(true);
   const prompts = await promptsResponse.json();

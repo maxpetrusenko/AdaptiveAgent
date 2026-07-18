@@ -46,17 +46,17 @@ describe("operator API", () => {
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
-      "http://localhost:8000/api/tasks/task-1/pause",
+      "/api/operator/tasks/task-1/pause",
       expect.objectContaining({ method: "POST" })
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
-      "http://localhost:8000/api/adapt/candidates/candidate-1/promote",
+      "/api/operator/adapt/candidates/candidate-1/promote",
       expect.objectContaining({ method: "POST" })
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
       3,
-      "http://localhost:8000/api/adapt/candidates/candidate-1/rollback",
+      "/api/operator/adapt/candidates/candidate-1/rollback",
       expect.objectContaining({ method: "POST" })
     );
   });

@@ -23,7 +23,7 @@ export function SessionList({
     <div className="flex h-full w-56 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
       <div className="flex items-center justify-between border-b border-sidebar-border px-3 py-3">
         <span className="text-sm font-medium">Sessions</span>
-        <Button variant="ghost" size="icon" className="h-7 w-7 text-sidebar-foreground hover:text-[#c8ff00]" onClick={onCreate}>
+        <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-sidebar-foreground hover:text-[#c8ff00]" onClick={onCreate}>
           <Plus className="h-4 w-4" />
         </Button>
       </div>
@@ -36,6 +36,7 @@ export function SessionList({
           )}
           {sessions.map((session) => (
             <button
+              type="button"
               key={session.id}
               onClick={() => onSelect(session.id)}
               className={cn(

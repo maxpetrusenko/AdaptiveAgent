@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,6 +22,7 @@ export default function AdaptPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<AdaptationDetail | null>(null);
   const [isRunning, setIsRunning] = useState(false);
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const loadRuns = useCallback(async () => {
     try {
@@ -69,7 +70,16 @@ export default function AdaptPage() {
     return () => {
       cancelled = true;
     };
-  }, [loadRuns]);
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
+    },
+    []
+  );
 
   const handleSelect = useCallback(
     (id: string) => {
@@ -82,12 +92,12 @@ export default function AdaptPage() {
   const handleImprove = async () => {
     setIsRunning(true);
     try {
-      const res = await fetch(`${API_BASE}/api/adapt/improve`, {
+      const res = await fetch("/api/operator/adapt/improve", {
         method: "POST",
       });
       if (res.ok) {
         const data = await res.json();
-        const pollInterval = setInterval(async () => {
+        pollIntervalRef.current = setInterval(async () => {
           try {
             const statusRes = await fetch(
               `${API_BASE}/api/adapt/runs/${data.id}`
@@ -99,14 +109,16 @@ export default function AdaptPage() {
                 statusData.run.status === "failed" ||
                 statusData.run.status === "rejected"
               ) {
-                clearInterval(pollInterval);
+                clearInterval(pollIntervalRef.current ?? undefined);
+                pollIntervalRef.current = null;
                 setIsRunning(false);
                 await loadRuns();
                 handleSelect(data.id);
               }
             }
           } catch {
-            clearInterval(pollInterval);
+            clearInterval(pollIntervalRef.current ?? undefined);
+            pollIntervalRef.current = null;
             setIsRunning(false);
           }
         }, 3000);

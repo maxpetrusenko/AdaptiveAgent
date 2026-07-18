@@ -9,6 +9,19 @@ permissions:
   contents: read
 
 jobs:
+  rust:
+    name: Rust retrieval
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: native/adaptive_retrieval
+    steps:
+      - uses: actions/checkout@v5
+      - run: rustup toolchain install 1.97.1 --profile minimal --component clippy,rustfmt
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets --all-features --locked -- -D warnings
+      - run: cargo test --locked
+
   backend:
     name: Backend
     runs-on: ubuntu-latest
@@ -24,6 +37,7 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
+      - run: rustup toolchain install 1.97.1 --profile minimal
       - run: uv sync --extra dev --locked
       - run: uv run ruff check .
       - run: uv run pytest -q
@@ -64,6 +78,7 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
+      - run: rustup toolchain install 1.97.1 --profile minimal
       - uses: pnpm/action-setup@v6
         with:
           version: 10.27.0
@@ -76,3 +91,20 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm e2e
+
+  containers:
+    name: Container builds
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [backend-runtime, frontend-runtime]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: ${{ matrix.target }}
+          push: false
+          cache-from: type=gha,scope=${{ matrix.target }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.target }}

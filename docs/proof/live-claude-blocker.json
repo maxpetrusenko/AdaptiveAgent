@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "attempted_at": "2026-07-18T04:53:00Z",
+  "provider": "anthropic",
+  "requested_model": "claude-sonnet-4-6",
+  "path_completed_before_generation": [
+    "three-source OpenAI semantic embedding",
+    "Rust hybrid index build",
+    "Rust dense plus BM25 retrieval",
+    "durable research plan checkpoint",
+    "sealed retrieval effect"
+  ],
+  "result": "blocked",
+  "http_status": 400,
+  "error_type": "invalid_request_error",
+  "error_message": "Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.",
+  "safety": {
+    "contains_source_content": false,
+    "contains_credentials": false
+  }
+}

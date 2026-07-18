@@ -18,17 +18,24 @@ export function PromptDiff({
   const afterLines = afterPrompt.split("\n");
 
   const maxLines = Math.max(beforeLines.length, afterLines.length);
-  const diffLines: { type: "same" | "removed" | "added"; content: string }[] =
-    [];
+  const diffLines: {
+    id: string;
+    type: "same" | "removed" | "added";
+    content: string;
+  }[] = [];
 
   for (let i = 0; i < maxLines; i++) {
     const before = beforeLines[i] ?? "";
     const after = afterLines[i] ?? "";
     if (before === after) {
-      diffLines.push({ type: "same", content: before });
+      diffLines.push({ id: `same-${i}`, type: "same", content: before });
     } else {
-      if (before) diffLines.push({ type: "removed", content: before });
-      if (after) diffLines.push({ type: "added", content: after });
+      if (before) {
+        diffLines.push({ id: `removed-${i}`, type: "removed", content: before });
+      }
+      if (after) {
+        diffLines.push({ id: `added-${i}`, type: "added", content: after });
+      }
     }
   }
 
@@ -49,9 +56,9 @@ export function PromptDiff({
           </TabsList>
           <TabsContent value={0} className="mt-2">
             <pre className="max-h-[400px] overflow-auto rounded bg-muted/50 p-3 text-xs font-mono">
-              {diffLines.map((line, i) => (
+              {diffLines.map((line) => (
                 <div
-                  key={i}
+                  key={line.id}
                   className={
                     line.type === "removed"
                       ? "bg-red-100 text-red-700"

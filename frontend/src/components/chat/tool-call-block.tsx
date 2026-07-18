@@ -14,6 +14,7 @@ export function ToolCallBlock({ toolCall }: ToolCallBlockProps) {
   return (
     <div className="rounded-md border border-border bg-background/50">
       <button
+        type="button"
         onClick={() => setIsOpen(!isOpen)}
         className="flex w-full items-center gap-2 px-3 py-2 text-xs hover:bg-accent/50"
       >

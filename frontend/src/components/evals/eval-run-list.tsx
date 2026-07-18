@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { EvalRun } from "@/lib/types";
+import { formatDateTime } from "@/lib/date-format";
 
 interface EvalRunListProps {
   runs: EvalRun[];
@@ -46,7 +47,7 @@ export function EvalRunList({ runs, selectedRunId, onSelect }: EvalRunListProps)
                   {run.status}
                 </Badge>
                 <span className="text-xs text-muted-foreground">
-                  {new Date(run.started_at).toLocaleString()}
+                  {formatDateTime(run.started_at)}
                 </span>
               </div>
               <div className="flex items-center gap-4 text-sm">

@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useId,
+  useRef,
+  type ReactNode,
+} from "react";
 import { createPortal } from "react-dom";
 
 import { Button } from "@/components/ui/button";
@@ -43,6 +50,11 @@ export function ConfirmationDialog({
     onClose();
     target?.focus();
   }, [onClose]);
+  const closeFromEffect = useEffectEvent(() => {
+    const target = priorFocus.current;
+    onClose();
+    target?.focus();
+  });
 
   useEffect(() => {
     if (!open) {
@@ -62,7 +74,7 @@ export function ConfirmationDialog({
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
-        closeAndRestoreFocus();
+        closeFromEffect();
       }
       if (event.key === "Tab" && overlay) {
         const focusable = Array.from(
@@ -101,9 +113,9 @@ export function ConfirmationDialog({
       });
       priorFocus.current?.focus();
     };
-  }, [closeAndRestoreFocus, open]);
+  }, [open]);
 
-  if (!open) {
+  if (!open || typeof document === "undefined") {
     return null;
   }
 

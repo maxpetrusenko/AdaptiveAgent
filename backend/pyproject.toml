@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Self-improving AI agent backend"
 requires-python = ">=3.11"
 dependencies = [
+    "adaptive-retrieval",
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.34.0",
     "sqlalchemy[asyncio]>=2.0.0",
@@ -11,6 +12,7 @@ dependencies = [
     "pydantic>=2.0.0",
     "pydantic-settings>=2.0.0",
     "langgraph>=0.4.0",
+    "langchain>=1.0.0,<2",
     "langchain-anthropic>=0.3.0",
     "langchain-openai>=0.3.0",
     "langchain-community>=0.3.0",
@@ -19,6 +21,7 @@ dependencies = [
     "sse-starlette>=2.0.0",
     "httpx>=0.28.0",
     "tiktoken>=0.8.0",
+    "langfuse>=4.0.0,<5",
 ]
 
 [project.optional-dependencies]
@@ -35,9 +38,13 @@ adaptive-agent-compare = "app.benchmarks.compare:main"
 adaptive-agent-adversarial = "app.benchmarks.adversarial:main"
 adaptive-agent-judge-calibration = "app.benchmarks.judge_calibration:main"
 adaptive-agent-benchmark-html = "app.benchmarks.report_html:main"
+adaptive-agent-retrieval-benchmark = "app.benchmarks.retrieval_cli:main"
 
 [tool.uv]
 package = true
+
+[tool.uv.sources]
+adaptive-retrieval = { path = "../native/adaptive_retrieval" }
 
 [tool.ruff]
 target-version = "py311"

@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "started_at": "2026-07-18T04:55:33.084Z",
+  "run_id": "proof-5602a638",
+  "result": {
+    "status": "completed",
+    "steps_completed": 4,
+    "citation_count": 1,
+    "verifier_passed": true
+  },
+  "retrieval": {
+    "backend": "adaptive_retrieval",
+    "implementation": "PyO3 Rust extension",
+    "embedding_provider": "openai",
+    "embedding_model": "text-embedding-3-small",
+    "embedding_dimensions": 256,
+    "ingested_sources": 3,
+    "retrieval_hits": 3,
+    "dense_ranks": [2, 1, 3],
+    "bm25_ranks": [1, null, null]
+  },
+  "generation": {
+    "provider": "openai",
+    "requested_model": "gpt-5.4",
+    "resolved_model": "gpt-5.4-2026-03-05",
+    "input_tokens": 300,
+    "output_tokens": 75,
+    "total_tokens": 375,
+    "latency_seconds": 2.019,
+    "cost_usd": 0.001875
+  },
+  "langfuse": {
+    "trace_id": "2d79a254b88beb31f29833b13b5884fb",
+    "input_redacted": true,
+    "output_redacted": true
+  },
+  "safety": {
+    "contains_source_content": false,
+    "contains_credentials": false
+  }
+}

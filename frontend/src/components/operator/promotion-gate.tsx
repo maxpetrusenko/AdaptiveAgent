@@ -192,9 +192,9 @@ export function PromotionGate({
             <p className="text-xs font-bold uppercase tracking-[0.15em]">
               Proposed mutations
             </p>
-            {selected.mutations.map((mutation, index) => (
+            {selected.mutations.map((mutation) => (
               <div
-                key={`${mutation.kind}-${mutation.target}-${index}`}
+                key={`${mutation.kind}-${mutation.target}-${mutation.summary}`}
                 className="grid gap-1 rounded-lg border p-3 text-sm sm:grid-cols-[10rem_10rem_1fr]"
               >
                 <code>{mutation.kind}</code>

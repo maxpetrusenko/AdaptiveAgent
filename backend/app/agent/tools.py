@@ -1,14 +1,15 @@
 from langchain_core.tools import tool
 
+from app.safe_math import SafeMathError, safe_calculate
+
 
 @tool
 def calculator(expression: str) -> str:
-    """Evaluate a mathematical expression. Input should be a valid Python math expression."""
+    """Evaluate bounded arithmetic without executing Python code."""
     try:
-        result = eval(expression, {"__builtins__": {}}, {})  # noqa: S307
-        return str(result)
-    except Exception as e:
-        return f"Error: {e}"
+        return safe_calculate(expression)
+    except SafeMathError as error:
+        return f"Error: unsafe expression: {error}"
 
 
 @tool

@@ -7,6 +7,7 @@ from functools import lru_cache
 from typing import Any
 
 from app.config import settings
+from app.observability import langchain_callbacks
 
 
 def _normalize_openai_compat_base_url(base_url: str) -> str:
@@ -64,6 +65,7 @@ def _ollama_available() -> bool:
 
 def build_chat_model(*, purpose: str, streaming: bool = False):
     provider = get_provider()
+    callbacks = langchain_callbacks(settings)
 
     if provider == "ollama":
         from langchain_openai import ChatOpenAI
@@ -79,6 +81,7 @@ def build_chat_model(*, purpose: str, streaming: bool = False):
             streaming=streaming,
             temperature=0,
             timeout=settings.llm_timeout_seconds,
+            callbacks=callbacks,
         )
 
     if provider == "openai":
@@ -93,6 +96,7 @@ def build_chat_model(*, purpose: str, streaming: bool = False):
             streaming=streaming,
             temperature=0,
             timeout=settings.llm_timeout_seconds,
+            callbacks=callbacks,
         )
 
     from langchain_anthropic import ChatAnthropic
@@ -105,6 +109,7 @@ def build_chat_model(*, purpose: str, streaming: bool = False):
         streaming=streaming,
         temperature=0,
         timeout=settings.llm_timeout_seconds,
+        callbacks=callbacks,
     )
 
 

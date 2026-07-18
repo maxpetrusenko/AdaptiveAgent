@@ -53,7 +53,7 @@ export default function CasesPage() {
     tags: string[];
   }) => {
     try {
-      const res = await fetch(`${API_BASE}/api/cases`, {
+      const res = await fetch("/api/operator/cases", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),

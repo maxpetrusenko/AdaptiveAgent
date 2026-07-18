@@ -19,6 +19,16 @@ class Settings(BaseSettings):
     ollama_model: str = "gemma4"
     ollama_judge_model: str = "gemma4"
     gemma4_api_key: str = ""
+    langfuse_public_key: str = ""
+    langfuse_secret_key: str = ""
+    langfuse_base_url: str = "https://cloud.langfuse.com"
+    knowledge_index_path: str = "./knowledge-index"
+    knowledge_embedding_provider: str = "deterministic"
+    knowledge_embedding_base_url: str = "https://api.openai.com/v1"
+    knowledge_embedding_model: str = "text-embedding-3-small"
+    knowledge_embedding_dimensions: int = 768
+    research_database_path: str = "./research.db"
+    research_proof_mode: bool = False
     llm_timeout_seconds: int = 60
     benchmark_case_timeout_seconds: int = 90
     cors_origins: list[str] = [

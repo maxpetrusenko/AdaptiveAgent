@@ -1,26 +1,87 @@
 # Adaptive Agent
 
 [![Python](https://img.shields.io/badge/-Python_3.11-3776AB?logo=python&logoColor=white)](https://python.org)
+[![Rust](https://img.shields.io/badge/-Rust_1.97-000000?logo=rust&logoColor=white)](https://www.rust-lang.org)
 [![TypeScript](https://img.shields.io/badge/-TypeScript-3178C6?logo=typescript&logoColor=white)](https://typescriptlang.org)
 [![Next.js](https://img.shields.io/badge/-Next.js_16-000000?logo=next.js&logoColor=white)](https://nextjs.org)
 [![FastAPI](https://img.shields.io/badge/-FastAPI-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![LangGraph](https://img.shields.io/badge/-LangGraph-1C3C3C?logo=langchain&logoColor=white)](https://langchain-ai.github.io/langgraph/)
+[![Langfuse](https://img.shields.io/badge/-Langfuse_traced-111111)](https://langfuse.com)
 [![CI](https://github.com/maxpetrusenko/AdaptiveAgent/actions/workflows/ci.yml/badge.svg)](https://github.com/maxpetrusenko/AdaptiveAgent/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-> Durable agent runtime with checkpointed execution and verifier-gated prompt improvement.
+> A durable agent runtime with native Rust hybrid retrieval, cited research,
+> crash-safe execution, and verifier-gated self-improvement.
 
 ---
 
-**An agent that can work for longer than one model call without grading or deploying its own changes.** Durable task ledgers survive restarts. Training failures can propose a bounded prompt candidate, but sealed validation and protected cases decide whether it is eligible. An operator must explicitly promote it.
+**An agent that can work for longer than one model call without grading or
+deploying its own changes.** Python owns orchestration and API contracts. Rust
+owns the measured retrieval hot path: exact cosine, Tantivy BM25, tenant
+filtering, and deterministic reciprocal-rank fusion. Durable effect journals
+survive worker failure. Training failures may propose bounded prompt changes,
+but sealed validation and protected cases decide whether they are eligible.
+An operator must explicitly promote them.
 
 ```
-Goal → Task ledger → Step → Checkpoint → Evidence → Resume / Replan
+Goal → Plan → Rust retrieve → Sealed effect → Synthesize → Verify
+                        ↘ crash → resume without repeating retrieval
 
 Training failures → Prompt candidate → Sealed validation + protected suite
                                       → Ready / Rejected
                                       → Explicit promote → Rollback
 ```
+
+---
+
+## Five-Minute Proof
+
+Open the application at `/proof`, then:
+
+1. Ingest the three visible sources.
+2. Inspect the native index generation and source hashes.
+3. Start a four-step research run.
+4. Observe a controlled interruption after retrieval is durably sealed.
+5. Resume and verify that retrieval remains on attempt one.
+6. Audit the cited Rust search hits, vector and BM25 ranks, index version, and
+   embedding fingerprint.
+
+Deterministic mode proves recovery and inspects native retrieval as a separate,
+clearly labeled result. Select live mode with a configured model key to run
+synthesis and verification over the tenant's native retrieval results.
+
+![Durable research proof showing a sealed crash and exactly-once resume](assets/proof-console.png)
+
+| Claim | Shipped evidence |
+| --- | --- |
+| Agentic long-horizon execution | Four autonomous plan, retrieve, synthesize, verify steps; leases, budgets, replanning, and sealed effects |
+| RAG and semantic retrieval | OpenAI-compatible embedding adapter, cited answers, citation and lexical-overlap verifier, prompt-injection boundary |
+| Rust performance | Runtime PyO3 extension using Rayon, Tantivy, exact cosine, and RRF |
+| Correctness before speed | Python oracle parity is mandatory before any latency is reported |
+| Self-improvement safety | Sealed validation, protected-suite veto, explicit promotion, transactional rollback |
+| Production tooling | FastAPI, Next.js, Langfuse redaction, health/recovery, Docker, CI, and real Playwright |
+
+Measured locally on an Apple arm64 machine, the reproducible 10,000-chunk,
+128-dimension fixture produced an 8.06 ms Rust p50 versus 161.07 ms for the
+Python oracle, a 19.97× p50 speedup. Treat this as a machine-specific engineering
+measurement, not a universal product benchmark. See the
+[benchmark artifact](docs/proof/retrieval-benchmark.json) and
+[TDD ledger](docs/proof/tdd-red-green.md).
+
+Reproduce it:
+
+```bash
+cd backend
+uv run adaptive-agent-retrieval-benchmark \
+  --chunks 10000 --dimensions 128 --queries 5 --iterations 10
+```
+
+A live OpenAI embedding → Rust retrieval → cited GPT-5.4 answer run completed
+with a redacted Langfuse trace; the
+[proof artifact](docs/proof/live-openai-rust-rag.json) records model, ranks,
+latency, usage, and trace ID. Claude is wired through the same shared model
+boundary, but the recorded live Claude attempt is honestly
+[blocked by Anthropic account credit](docs/proof/live-claude-blocker.json).
 
 ---
 
@@ -40,10 +101,18 @@ uv run uvicorn app.main:app --reload # http://localhost:8000
 # Frontend (new terminal)
 cd frontend
 pnpm install
+PROOF_PROXY_MODE=local \
+OPERATOR_PROXY_MODE=local \
 pnpm dev                      # http://localhost:3737
 ```
 
-Open `http://localhost:3737`. The database and 10 governed seed cases are created automatically on first run. The operator ledger is at `/tasks`.
+Open `http://localhost:3737/proof`. `uv sync` builds and installs the locked
+PyO3 ABI3 extension. Rust 1.97.1 is pinned in the native crate. The database and
+10 governed seed cases are created automatically on first run. The operator
+ledger is at `/tasks`.
+
+For a one-command container stack, follow
+[docs/deployment.md](docs/deployment.md).
 
 The default configuration is local-only SQLite. Operator-controlled mutations are
 limited to loopback clients unless `OPERATOR_API_TOKEN` is set; with a token configured,
@@ -62,6 +131,12 @@ cd backend
 uv sync --extra dev --locked
 uv run ruff check .
 uv run pytest -q
+
+# Native retrieval
+cd ../native/adaptive_retrieval
+cargo fmt --check
+cargo clippy --all-targets --all-features --locked -- -D warnings
+cargo test --locked
 
 # Frontend
 cd ../frontend
@@ -211,6 +286,11 @@ Task runs persist goals, constraints, acceptance criteria, plan versions, checkp
 - **Cases** — 10 seed test cases + create your own + auto-generate from failures
 - **Adaptation** — Candidate evaluation history with before/after prompt diff
 - **Tasks** — Durable execution timeline, checkpoint pressure, evidence state, and lifecycle controls
+- **Proof** — Real native ingest/search plus controlled research crash and resume
+- **Knowledge** — Content-addressed sources, versioned generations, real embedding adapter, citations, and fail-closed citation/overlap checks
+- **Research** — Autonomous plan, retrieve, synthesize, verify loop with leases, budgets, recovery, and suffix replanning
+- **Native retrieval** — PyO3, Rayon exact cosine, Tantivy BM25, tenant filtering, and deterministic RRF
+- **Observability** — Langfuse callbacks with prompt and output content redacted by default
 - **Promotion gate** — Sealed evaluation proof, explicit hash confirmation, and rollback
 - **Dashboard** — Live metrics: pass rate, hallucination rate, cost, trends over time
 
@@ -219,12 +299,13 @@ Task runs persist goals, constraints, acceptance criteria, plan versions, checkp
 ## Architecture
 
 ```
-frontend/                       backend/
-├── Next.js 16 (App Router)     ├── FastAPI + SQLAlchemy + SQLite
-├── shadcn/ui + Tailwind        ├── LangGraph agent with tools
-├── Recharts for metrics        ├── LLM-as-judge evaluation
-├── SSE streaming               ├── Durable task/effect ledger
-└── Operator proof surface      └── Persisted promotion authority
+frontend/                         backend/                         native/
+├── Next.js 16 (App Router)       ├── FastAPI + SQLAlchemy          └── adaptive_retrieval
+├── proof + operator surfaces     ├── knowledge generations            ├── PyO3 ABI3
+├── narrow server proof proxy     ├── autonomous research loop         ├── Tantivy BM25
+└── SSE streaming                 ├── LangGraph + model tools           ├── Rayon cosine
+                                  ├── Langfuse redaction                └── versioned snapshots
+                                  └── effect + promotion authority
 ```
 
 ### Tech Stack
@@ -233,7 +314,10 @@ frontend/                       backend/
 |-------|------|
 | Frontend | Next.js 16, Tailwind CSS, shadcn/ui, Recharts, react-markdown |
 | Backend | Python 3.11, FastAPI, LangGraph, SQLAlchemy, SQLite |
+| Retrieval | Rust 1.97.1, PyO3, Tantivy, Rayon, maturin |
 | Agent | OpenAI / Anthropic / OpenAI-compatible local proxy, tool calling, SSE streaming |
+| RAG | OpenAI-compatible embeddings, content lineage, hybrid search, RRF, citations, lexical-overlap verification |
+| Observability | Langfuse v4 callbacks, correlation metadata, content redaction |
 | Eval | deterministic checks first, LLM-as-judge fallback, hallucination detection, consistency checks |
 | Testing | Vitest, Playwright, pytest, Ruff, ESLint, GitHub Actions |
 
@@ -252,6 +336,9 @@ backend/
 ├── app/adapt/authority.py      # Transactional promotion and rollback
 ├── app/adapt/prompt_updater.py # LLM-based prompt improvement
 ├── app/tasks/                  # Durable task ledger and checkpoints
+├── app/knowledge/              # Ingest, embeddings, lineage, native retrieval, grounding
+├── app/research/               # Autonomous durable research runner and adapters
+├── app/observability/          # Langfuse callbacks, metadata, and redaction
 ├── app/memory/store.py         # Failure storage
 ├── app/memory/cases.py         # Failure → test case conversion
 ├── app/models.py               # All SQLAlchemy models
@@ -265,8 +352,15 @@ frontend/
 ├── src/app/cases/page.tsx      # Test case management
 ├── src/app/adapt/page.tsx      # Adaptation history + prompt diff
 ├── src/app/tasks/page.tsx      # Operator task and promotion console
+├── src/app/proof/page.tsx      # Native RAG and crash-resume proof
 ├── src/hooks/use-chat.ts       # Chat state + streaming hook
 └── src/components/             # Chat, evals, cases, adapt, layout
+
+native/adaptive_retrieval/
+├── src/index.rs                # Tantivy search and tenant filter
+├── src/scoring.rs              # Rayon cosine and deterministic RRF
+├── src/persistence.rs          # Versioned, atomic native snapshots
+└── tests/hybrid_contract.rs    # ABI contract and recovery coverage
 ```
 
 ---
@@ -301,6 +395,11 @@ frontend/
 | `POST` | `/api/tasks/:id/resume` | Resume a paused task |
 | `POST` | `/api/tasks/:id/cancel` | Cancel a task |
 | `GET` | `/api/tasks/:id/effects` | Inspect the idempotent effect journal |
+| `POST` | `/api/knowledge/ingest` | Build and activate a versioned native generation |
+| `POST` | `/api/knowledge/search` | Search the active Rust hybrid index |
+| `GET` | `/api/knowledge/index/health` | Inspect generation and index health |
+| `POST` | `/api/research/:tenant/runs` | Create an autonomous durable research run |
+| `POST` | `/api/research/:tenant/runs/:id/run` | Run or resume from the durable cursor |
 
 ---
 
@@ -328,6 +427,12 @@ TaskLedger       → checkpoints + steps + evidence + idempotent effects
 - **Fail-closed verifier** — protected regressions, invalid scores, insufficient samples, and budget regressions reject
 - **Prompt versioning** — every candidate is inactive until authorized, with transactional rollback
 - **Idempotent task effects** — request hashes plus checkpoint compare-and-swap prevent duplicate or lost effects
+- **PyO3 instead of a retrieval microservice** — keeps the measured CPU hot path
+  native without adding network serialization or another deployment unit
+- **Correctness-gated performance** — native timing is rejected until ranked
+  IDs, dense scores, and per-leg ranks match the Python oracle
+- **Metadata-only LLM telemetry** — Langfuse keeps timing, model, usage, and
+  correlation while masking prompt and output attributes
 
 ---
 
@@ -355,10 +460,11 @@ Key insight: **strengthen the verifier, not the generator**. If your eval layer 
 - [ ] Add a production queue and worker lease for distributed task execution
 - [ ] Replace SQLite-specific task migrations before a PostgreSQL deployment
 - [ ] Add authenticated multi-user operator roles
-- [ ] Add more tools (web search, code interpreter, RAG)
+- [ ] Add more tools (web search and code interpreter)
+- [ ] Add approximate vector search after exact-search scale data justifies it
 - [ ] DSPy-style prompt compilation (MIPROv2 optimizer)
 - [ ] Fine-tuning path (v2 adaptation beyond prompt updates)
-- [ ] OpenTelemetry tracing for agent observability
+- [ ] Add a hosted, authenticated demo after selecting a deployment target
 
 ---
 

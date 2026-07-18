@@ -11,6 +11,7 @@ import {
   Sparkles,
   Brain,
   ListChecks,
+  ShieldCheck,
 } from "lucide-react";
 
 const navItems = [
@@ -20,6 +21,7 @@ const navItems = [
   { href: "/cases", label: "Cases", icon: FolderOpen },
   { href: "/adapt", label: "Adapt", icon: Sparkles },
   { href: "/tasks", label: "Tasks", icon: ListChecks },
+  { href: "/proof", label: "Proof", icon: ShieldCheck },
 ];
 
 export function Sidebar() {
